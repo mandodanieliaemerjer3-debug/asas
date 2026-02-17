@@ -1,0 +1,41 @@
+[
+  {
+    "id": "p1",
+    "name": "X-Burger Artesanal",
+    "price": 28.90,
+    "points": 1,
+    "requiresCar": false,
+    "image": "/images/lanches/x-burger.jpg",
+    "category": "Lanches",
+    "restaurantId": "rest_1",
+    "coinPrice": 290,
+    "coinBonus": 3,
+    "description": "Pão brioche, blend 160g e queijo cheddar."
+  },
+  {
+    "id": "p2",
+    "name": "Pizza Calabresa Família",
+    "price": 45.00,
+    "points": 2,
+    "requiresCar": false,
+    "image": "/images/lanches/pizza-calabresa.jpg",
+    "category": "Pizza",
+    "restaurantId": "rest_2",
+    "coinPrice": 450,
+    "coinBonus": 5,
+    "description": "Massa artesanal e calabresa selecionada."
+  },
+  {
+    "id": "p3",
+    "name": "Hot Dog Especial",
+    "price": 18.00,
+    "points": 1,
+    "requiresCar": false,
+    "image": "/images/lanches/hot-dog.jpg",
+    "category": "Lanches",
+    "restaurantId": "rest_1",
+    "coinPrice": 180,
+    "coinBonus": 2,
+    "description": "Duas salsichas, purê e batata palha."
+  }
+]

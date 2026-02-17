@@ -1,0 +1,20 @@
+{
+  "home": [
+    { "id": "h1", "image": "/images/banners/home-promo-1.jpg" },
+    { "id": "h2", "image": "/images/banners/home-promo-2.jpg" }
+  ],
+  "Alta Gastronomia": [
+    { "id": "ag1", "image": "/images/banners/alta-gastro-1.jpg" },
+    { "id": "ag2", "image": "/images/banners/alta-gastro-2.jpg" }
+  ],
+  "Fitness": [
+    { "id": "ft1", "image": "/images/banners/fitness-1.jpg" },
+    { "id": "ft2", "image": "/images/banners/fitness-2.jpg" }
+  ],
+  "Bolos": [
+    { "id": "bl1", "image": "/images/banners/bolos-1.jpg" }
+  ],
+  "Festas": [
+    { "id": "fs1", "image": "/images/banners/festas-1.jpg" }
+  ]
+}

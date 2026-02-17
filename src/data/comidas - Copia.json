@@ -1,0 +1,68 @@
+[
+  {
+    "id": "p1",
+    "name": "X-Burger Artesanal",
+    "price": 28.90,
+    "image": "/images/lanches/x-burger.jpg",
+    "category": "Lanches",
+    "restaurantId": "rest_1",
+    "coinPrice": 290,
+    "coinBonus": 3,
+    "description": "Pão brioche, blend 160g e queijo cheddar."
+  },
+  {
+    "id": "p2",
+    "name": "Pizza Calabresa Família",
+    "price": 45.00,
+    "image": "/images/lanches/pizza-calabresa.jpg",
+    "category": "Pizza",
+    "restaurantId": "rest_2",
+    "coinPrice": 450,
+    "coinBonus": 5,
+    "description": "Massa artesanal e calabresa selecionada."
+  },
+  {
+    "id": "p3",
+    "name": "Hot Dog Especial",
+    "price": 18.00,
+    "image": "/images/lanches/hot-dog.jpg",
+    "category": "Lanches",
+    "restaurantId": "rest_1",
+    "coinPrice": 180,
+    "coinBonus": 2,
+    "description": "Duas salsichas, purê e batata palha."
+  },
+  {
+    "id": "p4",
+    "name": "Pizza 4 Queijos",
+    "price": 48.00,
+    "image": "/images/lanches/pizza-queijos.jpg",
+    "category": "Pizza",
+    "restaurantId": "rest_2",
+    "coinPrice": 480,
+    "coinBonus": 5,
+    "description": "Mussarela, provolone, parmesão e gorgonzola."
+  },
+  {
+    "id": "p5",
+    "name": "Batata Suprema",
+    "price": 25.00,
+    "image": "/images/lanches/batata-suprema.jpg",
+    "category": "Lanches",
+    "restaurantId": "rest_1",
+    "coinPrice": 250,
+    "coinBonus": 2,
+    "description": "Porção grande com bacon e cheddar."
+  },
+  {
+    "id": "p6",
+    "name": "Combo Smash Burger",
+    "price": 35.00,
+    "image": "/images/lanches/combo-smash.jpg",
+    "category": "Lanches",
+    "restaurantId": "rest_1",
+    "coinPrice": 350,
+    "coinBonus": 4,
+    "description": "Smash duplo + Batata M + Refri."
+  }
+]

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "rest_1",
+    "name": "Burger Master",
+    "image": "/images/restaurantes/burger.jpg",
+    "category": "Lanches"
+  },
+  {
+    "id": "rest_2",
+    "name": "Pizzaria da Nonna",
+    "image": "/images/restaurantes/pizzaria.jpg",
+    "category": "Pizzas"
+  },
+  {
+    "id": "rest_especial",
+    "name": "Buffet Real",
+    "image": "/images/restaurantes/especial.jpg",
+    "category": "Buffet"
+  }
+]

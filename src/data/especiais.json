@@ -1,0 +1,82 @@
+[
+  {
+    "id": "esp_1",
+    "name": "Bolo de Casamento Luxo",
+    "price": 450.00,
+    "image": "/images/especiais/bolo-casamento.jpg",
+    "category": "Bolos",
+    "requiresCar": true,
+    "description": "Bolo de 3 andares com massa de baunilha. Reserva 72h.",
+    "restaurantId": "rest_especial"
+  },
+  {
+    "id": "esp_2",
+    "name": "Torta de Morango Premium",
+    "price": 120.00,
+    "image": "/images/especiais/torta-morango.jpg",
+    "category": "Bolos",
+    "requiresCar": true,
+    "description": "Massa folhada com creme patissiere e morangos frescos.",
+    "restaurantId": "rest_especial"
+  },
+  {
+    "id": "esp_3",
+    "name": "Kit Festa (10 pessoas)",
+    "price": 890.00,
+    "image": "/images/especiais/kit-festa.jpg",
+    "category": "Festas",
+    "requiresCar": true,
+    "description": "Salgados, doces finos e bolo temático. Reserva 5 dias.",
+    "restaurantId": "rest_especial"
+  },
+  {
+    "id": "esp_4",
+    "name": "Coffee Break Empresa",
+    "price": 350.00,
+    "image": "/images/especiais/coffee-break.jpg",
+    "category": "Festas",
+    "requiresCar": true,
+    "description": "Mini sanduíches, bolos caseiros e sucos naturais.",
+    "restaurantId": "rest_especial"
+  },
+  {
+    "id": "esp_5",
+    "name": "Lagosta ao Thermidor",
+    "price": 280.00,
+    "image": "/images/especiais/lagosta.jpg",
+    "category": "Alta Gastronomia",
+    "requiresCar": false,
+    "description": "Acompanha risoto de açafrão. Reserva 24h.",
+    "restaurantId": "rest_especial"
+  },
+  {
+    "id": "esp_6",
+    "name": "Filet Mignon ao Malbec",
+    "price": 115.00,
+    "image": "/images/especiais/filet-mignon.jpg",
+    "category": "Alta Gastronomia",
+    "requiresCar": false,
+    "description": "Medalhão ao molho de vinho com purê trufado.",
+    "restaurantId": "rest_especial"
+  },
+  {
+    "id": "esp_7",
+    "name": "Plano Semanal Detox",
+    "price": 210.00,
+    "image": "/images/especiais/plano-detox.jpg",
+    "category": "Fitness",
+    "requiresCar": false,
+    "description": "5 refeições leves + 5 sucos prensados a frio.",
+    "restaurantId": "rest_especial"
+  },
+  {
+    "id": "esp_8",
+    "name": "Kit Marmitas Low Carb",
+    "price": 185.00,
+    "image": "/images/especiais/marmitas-fit.jpg",
+    "category": "Fitness",
+    "requiresCar": false,
+    "description": "10 marmitas congeladas variadas de 300g.",
+    "restaurantId": "rest_especial"
+  }
+]
