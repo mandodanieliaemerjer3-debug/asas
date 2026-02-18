@@ -1,132 +1,153 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { db } from "../../../lib/firebase";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import Tesseract from "tesseract.js";
-import { useRouter, useSearchParams } from "next/navigation";
 
-export default function InspecaoPixPage() {
-  const [progresso, setProgresso] = useState(0);
-  const [processando, setProcessando] = useState(false);
-  const [resultado, setResultado] = useState("");
-  const router = useRouter();
+export default function ProcessadorPix() {
+
   const searchParams = useSearchParams();
-
+  const router = useRouter();
   const orderId = searchParams.get("orderId");
 
-  async function analisarImagem(file) {
-    setProcessando(true);
-    setProgresso(0);
+  const [status, setStatus] = useState("Iniciando varredura digital...");
+  const [percentual, setPercentual] = useState(0);
+  const [resultado, setResultado] = useState(null);
 
-    try {
-      const { data } = await Tesseract.recognize(file, "por", {
-        logger: (m) => {
-          if (m.status === "recognizing text") {
-            setProgresso(Math.round(m.progress * 100));
+  useEffect(() => {
+
+    async function processar() {
+
+      if (!orderId) {
+        setStatus("Pedido não informado.");
+        return;
+      }
+
+      const snap = await getDoc(doc(db, "orders", orderId));
+
+      if (!snap.exists()) {
+        setStatus("Pedido não encontrado.");
+        return;
+      }
+
+      const valorEsperado = snap.data()?.valores?.total;
+
+      const imagemBase64 = localStorage.getItem("temp_pix_img");
+
+      if (!imagemBase64) {
+        setStatus("Nenhuma imagem de comprovante encontrada.");
+        setResultado("Envie o comprovante antes de validar.");
+        return;
+      }
+
+      try {
+
+        setStatus("Escaneando comprovante...");
+
+        const { data } = await Tesseract.recognize(
+          imagemBase64,
+          "por",
+          {
+            logger: m => {
+              if (m.status === "recognizing text") {
+                setPercentual(Math.floor(m.progress * 100));
+              }
+            },
+            workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js",
+            corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js"
           }
-        },
-      });
+        );
 
-      setResultado(data.text);
-      setProcessando(false);
+        const texto = (data.text || "").toLowerCase();
 
-      // aqui você pode depois salvar esse resultado no pedido
-      // usando Firestore se quiser
+        const temPix =
+          texto.includes("pix") ||
+          texto.includes("comprovante");
 
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao analisar o comprovante.");
-      setProcessando(false);
+        let valorDetectado = false;
+
+        if (valorEsperado) {
+          const valor1 = valorEsperado.toFixed(2).replace(".", ",");
+          const valor2 = valorEsperado.toFixed(2).replace(",", ".");
+          valorDetectado =
+            texto.includes(valor1) || texto.includes(valor2);
+        }
+
+        if (temPix && valorDetectado) {
+          setResultado("Comprovante validado automaticamente.");
+          await finalizarValidacao(orderId, true);
+        } else {
+          setResultado("Não foi possível validar automaticamente.");
+        }
+
+      } catch (err) {
+
+        console.error(err);
+        setStatus("Erro ao analisar o comprovante.");
+        setResultado("Falha no OCR. Enviar para análise manual.");
+
+      }
+
     }
-  }
 
-  function onFileChange(e) {
-    const file = e.target.files[0];
-    if (!file) return;
+    processar();
 
-    analisarImagem(file);
+  }, [orderId]);
+
+
+  async function finalizarValidacao(id, automatico) {
+
+    await updateDoc(doc(db, "orders", id), {
+      status: "Pendente",
+      validacaoIA: automatico ? "Aprovado" : "Manual"
+    });
+
+    router.push(`/pedido-confirmado/${id}`);
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#000",
-        color: "#fff",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 20,
-      }}
-    >
-      <h2 style={{ marginBottom: 20 }}>PERÍCIA DIGITAL PIX</h2>
+    <main className="min-h-screen bg-black text-white p-10 flex flex-col items-center justify-center font-sans">
 
-      {!processando && (
-        <>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={onFileChange}
-          />
+      <div className="w-full max-w-sm text-center">
 
-          {!orderId && (
-            <p style={{ marginTop: 10, color: "orange" }}>
-              Atenção: pedido não identificado.
-            </p>
-          )}
-        </>
-      )}
+        <div className="relative w-40 h-40 mx-auto mb-10">
 
-      {processando && (
-        <div
-          style={{
-            marginTop: 30,
-            background: "#111",
-            padding: 30,
-            borderRadius: 16,
-            textAlign: "center",
-            minWidth: 200,
-          }}
-        >
-          <div style={{ fontSize: 40, color: "red" }}>{progresso}%</div>
-          <div style={{ marginTop: 10, fontSize: 12 }}>
-            ESCANEANDO PADRÕES FINANCEIROS...
+          <div className="absolute inset-0 border-4 border-red-600 rounded-full animate-ping opacity-20"></div>
+          <div className="absolute inset-0 border-t-4 border-red-600 rounded-full animate-spin"></div>
+
+          <div className="flex items-center justify-center h-full font-black text-2xl italic">
+            {percentual}%
           </div>
-        </div>
-      )}
 
-      {resultado && (
-        <div
-          style={{
-            marginTop: 30,
-            background: "#111",
-            padding: 20,
-            borderRadius: 12,
-            maxWidth: 600,
-            width: "100%",
-            whiteSpace: "pre-wrap",
-            fontSize: 12,
-          }}
-        >
-          <strong>Texto encontrado:</strong>
-          <br />
-          <br />
-          {resultado}
         </div>
-      )}
 
-      <button
-        onClick={() => router.back()}
-        style={{
-          marginTop: 30,
-          padding: "10px 20px",
-          borderRadius: 8,
-          border: "none",
-          cursor: "pointer",
-        }}
-      >
-        Voltar
-      </button>
-    </div>
+        <h1 className="text-xl font-black uppercase italic mb-4">
+          {status}
+        </h1>
+
+        {resultado && (
+
+          <div className="bg-zinc-900 p-6 rounded-[30px] border border-zinc-800">
+
+            <p className="text-[11px] font-bold uppercase text-zinc-400 mb-5">
+              {resultado}
+            </p>
+
+            <button
+              onClick={() => finalizarValidacao(orderId, false)}
+              className="bg-white text-black px-8 py-4 rounded-full font-black uppercase italic text-[11px]"
+            >
+              ENVIAR PARA ANÁLISE MANUAL →
+            </button>
+
+          </div>
+
+        )}
+
+      </div>
+
+    </main>
   );
 }
