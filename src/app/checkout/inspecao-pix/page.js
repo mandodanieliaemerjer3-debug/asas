@@ -6,148 +6,152 @@ import { db } from "../../../lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import Tesseract from "tesseract.js";
 
-export default function ProcessadorPix() {
-
+export default function InspecaoPixPro() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const orderId = searchParams.get("orderId");
 
-  const [status, setStatus] = useState("Iniciando varredura digital...");
   const [percentual, setPercentual] = useState(0);
-  const [resultado, setResultado] = useState(null);
+  const [erro, setErro] = useState("");
+  const [analise, setAnalise] = useState(null);
 
   useEffect(() => {
-
-    async function processar() {
-
+    async function analisar() {
       if (!orderId) {
-        setStatus("Pedido não informado.");
+        setErro("Pedido inválido");
+        return;
+      }
+
+      const imagem = localStorage.getItem("temp_pix_img");
+
+      // 🚨 SEM IMAGEM = NÃO ANALISA
+      if (!imagem) {
+        setErro("Nenhum comprovante enviado");
         return;
       }
 
       const snap = await getDoc(doc(db, "orders", orderId));
-
       if (!snap.exists()) {
-        setStatus("Pedido não encontrado.");
+        setErro("Pedido não encontrado");
         return;
       }
 
-      const valorEsperado = snap.data()?.valores?.total;
-
-      const imagemBase64 = localStorage.getItem("temp_pix_img");
-
-      if (!imagemBase64) {
-        setStatus("Nenhuma imagem de comprovante encontrada.");
-        setResultado("Envie o comprovante antes de validar.");
-        return;
-      }
+      const valorPedido = snap.data().valores?.total ?? 0;
 
       try {
-
-        setStatus("Escaneando comprovante...");
-
-        const { data } = await Tesseract.recognize(
-          imagemBase64,
-          "por",
-          {
-            logger: m => {
-              if (m.status === "recognizing text") {
-                setPercentual(Math.floor(m.progress * 100));
-              }
-            },
-            workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js",
-            corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js"
+        const result = await Tesseract.recognize(imagem, "por", {
+          logger: m => {
+            if (m.status === "recognizing text") {
+              setPercentual(Math.floor(m.progress * 100));
+            }
           }
-        );
+        });
 
-        const texto = (data.text || "").toLowerCase();
+        const txt = result.data.text.toLowerCase();
 
-        const temPix =
-          texto.includes("pix") ||
-          texto.includes("comprovante");
+        const regexValores = /r\$\s?(\d+[\d.,]*)/g;
+        let valores = [];
+        let m;
 
-        let valorDetectado = false;
-
-        if (valorEsperado) {
-          const valor1 = valorEsperado.toFixed(2).replace(".", ",");
-          const valor2 = valorEsperado.toFixed(2).replace(",", ".");
-          valorDetectado =
-            texto.includes(valor1) || texto.includes(valor2);
+        while ((m = regexValores.exec(txt)) !== null) {
+          const num = parseFloat(
+            m[1].replace(/\./g, "").replace(",", ".")
+          );
+          if (!isNaN(num)) valores.push(num);
         }
 
-        if (temPix && valorDetectado) {
-          setResultado("Comprovante validado automaticamente.");
-          await finalizarValidacao(orderId, true);
-        } else {
-          setResultado("Não foi possível validar automaticamente.");
-        }
+        const maiorValor = valores.length ? Math.max(...valores) : 0;
 
-      } catch (err) {
-
-        console.error(err);
-        setStatus("Erro ao analisar o comprovante.");
-        setResultado("Falha no OCR. Enviar para análise manual.");
-
+        setAnalise({
+          temPalavras:
+            txt.includes("pix") ||
+            txt.includes("pagamento") ||
+            txt.includes("comprovante"),
+          valorConfere: maiorValor >= valorPedido,
+          valorLido: maiorValor
+        });
+      } catch (e) {
+        setErro("Erro ao analisar o comprovante");
       }
-
     }
 
-    processar();
-
+    analisar();
   }, [orderId]);
 
+  const finalizar = async () => {
+    if (!analise) return;
 
-  async function finalizarValidacao(id, automatico) {
-
-    await updateDoc(doc(db, "orders", id), {
+    await updateDoc(doc(db, "orders", orderId), {
       status: "Pendente",
-      validacaoIA: automatico ? "Aprovado" : "Manual"
+      validacaoIA:
+        analise.temPalavras && analise.valorConfere
+          ? "Aprovado"
+          : "Alerta de Fraude",
+      valorDetectadoIA: analise.valorLido
     });
 
-    router.push(`/pedido-confirmado/${id}`);
+    localStorage.removeItem("temp_pix_img");
+    router.push(`/pedido-confirmado/${orderId}`);
+  };
+
+  // 🔴 TELA DE ERRO
+  if (erro) {
+    return (
+      <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center text-center p-10">
+        <h1 className="text-xl font-black mb-4">PIX</h1>
+        <p className="opacity-60 mb-8">{erro}</p>
+        <button
+          onClick={() => router.back()}
+          className="bg-red-600 px-6 py-4 rounded-2xl font-bold"
+        >
+          Voltar
+        </button>
+      </main>
+    );
   }
 
-  return (
-    <main className="min-h-screen bg-black text-white p-10 flex flex-col items-center justify-center font-sans">
-
-      <div className="w-full max-w-sm text-center">
-
-        <div className="relative w-40 h-40 mx-auto mb-10">
-
-          <div className="absolute inset-0 border-4 border-red-600 rounded-full animate-ping opacity-20"></div>
-          <div className="absolute inset-0 border-t-4 border-red-600 rounded-full animate-spin"></div>
-
-          <div className="flex items-center justify-center h-full font-black text-2xl italic">
-            {percentual}%
-          </div>
-
+  // 🟡 CARREGANDO
+  if (!analise) {
+    return (
+      <main className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-5xl font-black text-red-600">{percentual}%</div>
+          <p className="text-xs opacity-30 mt-2">
+            Escaneando comprovante Pix...
+          </p>
         </div>
+      </main>
+    );
+  }
 
-        <h1 className="text-xl font-black uppercase italic mb-4">
-          {status}
+  // 🟢 RESULTADO
+  return (
+    <main className="min-h-screen bg-black text-white p-10 flex items-center justify-center">
+      <div className="bg-zinc-900 p-8 rounded-3xl w-full max-w-sm space-y-6">
+        <h1 className="text-lg font-black uppercase text-center">
+          Perícia Digital Pix
         </h1>
 
-        {resultado && (
-
-          <div className="bg-zinc-900 p-6 rounded-[30px] border border-zinc-800">
-
-            <p className="text-[11px] font-bold uppercase text-zinc-400 mb-5">
-              {resultado}
-            </p>
-
-            <button
-              onClick={() => finalizarValidacao(orderId, false)}
-              className="bg-white text-black px-8 py-4 rounded-full font-black uppercase italic text-[11px]"
-            >
-              ENVIAR PARA ANÁLISE MANUAL →
-            </button>
-
+        <div className="text-xs space-y-3">
+          <div>
+            Documento:{" "}
+            <strong>
+              {analise.temPalavras ? "Identificado" : "Não reconhecido"}
+            </strong>
           </div>
+          <div>
+            Valor detectado:{" "}
+            <strong>R$ {analise.valorLido.toFixed(2)}</strong>
+          </div>
+        </div>
 
-        )}
-
+        <button
+          onClick={finalizar}
+          className="w-full bg-red-600 py-4 rounded-2xl font-black"
+        >
+          LIBERAR PEDIDO
+        </button>
       </div>
-
     </main>
   );
 }
