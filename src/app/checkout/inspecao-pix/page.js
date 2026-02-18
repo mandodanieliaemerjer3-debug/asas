@@ -1,80 +1,132 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { db } from "../../../lib/firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import Tesseract from "tesseract.js"; //
 
-export default function InspecaoPix() {
-  const searchParams = useSearchParams();
+import { useState } from "react";
+import Tesseract from "tesseract.js";
+import { useRouter, useSearchParams } from "next/navigation";
+
+export default function InspecaoPixPage() {
+  const [progresso, setProgresso] = useState(0);
+  const [processando, setProcessando] = useState(false);
+  const [resultado, setResultado] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const orderId = searchParams.get("orderId");
 
-  const [percentual, setPercentual] = useState(0);
-  const [analise, setAnalise] = useState({ temPalavras: false, valorConfere: false, finalizado: false });
+  async function analisarImagem(file) {
+    setProcessando(true);
+    setProgresso(0);
 
-  useEffect(() => {
-    async function analisar() {
-      const imagem = localStorage.getItem("temp_pix_img");
-      const snap = await getDoc(doc(db, "orders", orderId));
-      const valorPedido = snap.data().valores.total.toString().replace('.', ',');
-
-      Tesseract.recognize(imagem, 'por', {
-        logger: m => m.status === 'recognizing text' && setPercentual(Math.floor(m.progress * 100))
-      }).then(({ data: { text } }) => {
-        const txt = text.toLowerCase();
-        setAnalise({
-          temPalavras: txt.includes("comprovante") || txt.includes("pix") || txt.includes("pagamento"),
-          valorConfere: txt.includes(valorPedido),
-          finalizado: true
-        });
+    try {
+      const { data } = await Tesseract.recognize(file, "por", {
+        logger: (m) => {
+          if (m.status === "recognizing text") {
+            setProgresso(Math.round(m.progress * 100));
+          }
+        },
       });
-    }
-    analisar();
-  }, [orderId]);
 
-  const finalizar = async () => {
-    await updateDoc(doc(db, "orders", orderId), {
-      status: "Pendente",
-      validacaoIA: analise.temPalavras && analise.valorConfere ? "Aprovado" : "Alerta de Fraude"
-    });
-    router.push(`/pedido-confirmado/${orderId}`);
-  };
+      setResultado(data.text);
+      setProcessando(false);
+
+      // aqui você pode depois salvar esse resultado no pedido
+      // usando Firestore se quiser
+
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao analisar o comprovante.");
+      setProcessando(false);
+    }
+  }
+
+  function onFileChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    analisarImagem(file);
+  }
 
   return (
-    <main className="min-h-screen bg-black text-white p-10 flex flex-col items-center justify-center text-center">
-      <h1 className="text-2xl font-black italic uppercase mb-10">Inspecionando <br/> Comprovante</h1>
-      
-      <div className="w-full max-w-xs bg-zinc-900 p-8 rounded-[40px] border border-white/10">
-        {!analise.finalizado ? (
-          <>
-            <div className="text-4xl font-black italic mb-4">{percentual}%</div>
-            <p className="text-[10px] uppercase font-bold opacity-40">Procurando evidências de falsificação...</p>
-          </>
-        ) : (
-          <div className="space-y-6">
-             <div className="text-left space-y-2">
-                <p className={`text-[10px] font-black uppercase ${analise.temPalavras ? 'text-emerald-500' : 'text-red-500'}`}>
-                   {analise.temPalavras ? "✅ Formato Identificado" : "❌ Documento Inválido"}
-                </p>
-                <p className={`text-[10px] font-black uppercase ${analise.valorConfere ? 'text-emerald-500' : 'text-red-500'}`}>
-                   {analise.valorConfere ? "✅ Valor Identificado" : "❌ Valor não encontrado"}
-                </p>
-             </div>
-             
-             {(!analise.temPalavras || !analise.valorConfere) && (
-               <p className="bg-red-600/20 text-red-500 p-4 rounded-2xl text-[9px] font-black uppercase italic">
-                 Atenção: A imagem não parece um comprovante válido. O restaurante fará uma análise rigorosa.
-               </p>
-             )}
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#000",
+        color: "#fff",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+      }}
+    >
+      <h2 style={{ marginBottom: 20 }}>PERÍCIA DIGITAL PIX</h2>
 
-             <button onClick={finalizar} className="w-full bg-white text-black py-5 rounded-3xl font-black uppercase italic text-xs">
-               CONFIRMAR ENVIO ➔
-             </button>
-             <button onClick={() => router.back()} className="text-[10px] font-black uppercase opacity-30 underline">Tentar outra foto</button>
+      {!processando && (
+        <>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={onFileChange}
+          />
+
+          {!orderId && (
+            <p style={{ marginTop: 10, color: "orange" }}>
+              Atenção: pedido não identificado.
+            </p>
+          )}
+        </>
+      )}
+
+      {processando && (
+        <div
+          style={{
+            marginTop: 30,
+            background: "#111",
+            padding: 30,
+            borderRadius: 16,
+            textAlign: "center",
+            minWidth: 200,
+          }}
+        >
+          <div style={{ fontSize: 40, color: "red" }}>{progresso}%</div>
+          <div style={{ marginTop: 10, fontSize: 12 }}>
+            ESCANEANDO PADRÕES FINANCEIROS...
           </div>
-        )}
-      </div>
-    </main>
+        </div>
+      )}
+
+      {resultado && (
+        <div
+          style={{
+            marginTop: 30,
+            background: "#111",
+            padding: 20,
+            borderRadius: 12,
+            maxWidth: 600,
+            width: "100%",
+            whiteSpace: "pre-wrap",
+            fontSize: 12,
+          }}
+        >
+          <strong>Texto encontrado:</strong>
+          <br />
+          <br />
+          {resultado}
+        </div>
+      )}
+
+      <button
+        onClick={() => router.back()}
+        style={{
+          marginTop: 30,
+          padding: "10px 20px",
+          borderRadius: 8,
+          border: "none",
+          cursor: "pointer",
+        }}
+      >
+        Voltar
+      </button>
+    </div>
   );
 }
