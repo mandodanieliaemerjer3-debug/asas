@@ -1,108 +1,85 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { db } from "../../lib/firebase";
-import { getDocs, collection, doc, getDoc } from "firebase/firestore";
-import { useAuth } from "../../contexts/AuthContext";
+import { db } from "../../lib/firebase"; //
 
-export default function CheckoutFase1() {
-  const { user } = useAuth();
+export default function CheckoutBalanca() {
   const router = useRouter();
+  const [pontoEntrega, setPontoEntrega] = useState("Morro do Sabão");
+  const [carregando, setCarregando] = useState(false);
 
-  const [cart, setCart] = useState([]);
-  const [bairros, setBairros] = useState([]);
-  const [bairroSelecionado, setBairroSelecionado] = useState(null);
-  const [rua, setRua] = useState("");
-  const [numero, setNumero] = useState("");
-  const [loading, setLoading] = useState(true);
+  // Simulação do cálculo de volume da carga (Balança)
+  const volumeCarga = "2 PONTOS"; 
 
-  // ⚖️ CÁLCULO DA BALANÇA (PONTOS)
-  const totalPontos = cart.reduce((acc, item) => {
-    // Regra: Refri=5, Pizza=2, Lanche/Outros=1
-    const p = item.category === "Bebidas" ? 5 : (item.category === "Pizzas" ? 2 : 1);
-    return acc + p;
-  }, 0);
-
-  useEffect(() => {
-    const carregar = async () => {
-      const savedCart = localStorage.getItem("carrinho");
-      if (savedCart) setCart(JSON.parse(savedCart));
-      else router.push("/");
-
-      const bSnap = await getDocs(collection(db, "neighborhoods"));
-      setBairros(bSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
-      if (user) {
-        const uSnap = await getDoc(doc(db, "users", user.uid));
-        if (uSnap.exists() && uSnap.data().endereco) {
-          const end = uSnap.data().endereco;
-          setRua(end.rua || ""); setNumero(end.numero || "");
-        }
-      }
-      setLoading(false);
-    };
-    carregar();
-  }, [user, router]);
-
-  const irParaLogistica = () => {
-    if (!bairroSelecionado || !rua) return;
+  const handleAnalise = () => {
+    setCarregando(true);
     
-    // Salva os dados para a Fase 2 (A transição automática)
-    localStorage.setItem("pre_checkout", JSON.stringify({
-      bairro: bairroSelecionado,
-      rua,
-      numero,
-      pontosCarga: totalPontos
-    }));
-
-    // Manda para a página da Barra de Carregamento
-    router.push("/checkout/pre-logistica");
+    // Simula o tempo de processamento da IA de logística
+    setTimeout(() => {
+      setCarregando(false);
+      // 🚀 REDIRECIONA PARA A NOVA PÁGINA DE RATEIO
+      router.push("/checkout/rateio"); 
+    }, 1500);
   };
 
-  if (loading) return <div className="p-20 text-center font-black animate-pulse">CARREGANDO CARRINHO...</div>;
-
   return (
-    <main className="min-h-screen bg-gray-50 pb-10 max-w-md mx-auto text-black font-sans">
-      <header className="bg-white p-6 rounded-b-[45px] shadow-sm mb-6 text-center">
-        <h1 className="text-2xl font-black uppercase italic tracking-tighter">Fase 1: Balança</h1>
+    <main className="min-h-screen bg-white flex flex-col font-sans max-w-md mx-auto shadow-2xl">
+      {/* HEADER DA FASE */}
+      <header className="p-10 text-center">
+        <h1 className="text-xl font-black italic uppercase tracking-tighter text-zinc-900">
+          Fase 1: Balança
+        </h1>
       </header>
 
-      <div className="px-4 space-y-4">
-        {/* BALANÇA DE CARGA */}
-        <div className="bg-zinc-900 text-white p-6 rounded-[35px] shadow-xl flex justify-between items-center">
-          <div>
-            <p className="text-[10px] font-black uppercase italic opacity-40">Volume da Carga</p>
-            <h3 className="text-2xl font-black italic">{totalPontos} PONTOS</h3>
-          </div>
-          <div className="text-right">
-            <span className={`text-[8px] font-black px-3 py-1 rounded-full uppercase ${totalPontos > 15 ? 'bg-red-600' : 'bg-green-600'}`}>
-              {totalPontos > 15 ? 'Carga Pesada' : 'Carga Leve'}
-            </span>
-          </div>
+      <div className="px-6 flex-1 space-y-6">
+        {/* CARD DE VOLUME (ESTILO PRETO) */}
+        <div className="bg-zinc-900 rounded-[40px] p-8 relative overflow-hidden shadow-xl">
+           <div className="absolute top-4 right-6 bg-green-500 text-[8px] font-black text-white px-3 py-1 rounded-full uppercase">
+             Carga Leve
+           </div>
+           <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-1">Volume da Carga</p>
+           <h2 className="text-3xl font-black italic text-white uppercase">{volumeCarga}</h2>
         </div>
 
-        {/* ENDEREÇO */}
-        <div className="bg-white p-6 rounded-[35px] shadow-sm space-y-4 border border-gray-100">
-          <select 
-            className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-sm outline-none border border-gray-100"
-            onChange={(e) => setBairroSelecionado(bairros.find(b => b.id === e.target.value))}
-          >
-            <option value="">Selecione seu Bairro...</option>
-            {bairros.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+        {/* SELETOR DE PONTO DE ENTREGA */}
+        <div className="space-y-4">
+          <div className="relative">
+            <select 
+              value={pontoEntrega}
+              onChange={(e) => setPontoEntrega(e.target.value)}
+              className="w-full bg-zinc-50 border border-zinc-100 p-5 rounded-[24px] text-sm font-bold appearance-none outline-none focus:border-red-600 transition-all"
+            >
+              <option>Morro do Sabão</option>
+              <option>Vila Rural</option>
+              <option>Centro (Off-Road)</option>
+            </select>
+            <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-xs">▼</div>
+          </div>
 
-          <input placeholder="Sua Rua" className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-sm outline-none" value={rua} onChange={e => setRua(e.target.value)} />
-          <input placeholder="Número" className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-sm outline-none" value={numero} onChange={e => setNumero(e.target.value)} />
+          <input 
+            placeholder="Ponto de Referência"
+            className="w-full bg-zinc-50 border border-zinc-100 p-5 rounded-[24px] text-sm outline-none focus:border-red-600"
+          />
+          
+          <input 
+            placeholder="Observações do Pedido"
+            className="w-full bg-zinc-50 border border-zinc-100 p-5 rounded-[24px] text-sm outline-none focus:border-red-600"
+          />
         </div>
-
-        <button 
-          onClick={irParaLogistica}
-          disabled={!bairroSelecionado || !rua}
-          className="w-full bg-red-600 text-white py-6 rounded-[35px] font-black uppercase italic text-sm shadow-2xl active:scale-95 transition disabled:opacity-20"
-        >
-          Analisar Logística ➔
-        </button>
       </div>
+
+      {/* BOTÃO DE AÇÃO */}
+      <footer className="p-6 pb-10">
+        <button 
+          onClick={handleAnalise}
+          disabled={carregando}
+          className={`w-full py-6 rounded-[30px] font-black italic uppercase tracking-[2px] transition-all shadow-xl ${
+            carregando ? "bg-zinc-200 text-zinc-400" : "bg-red-600 text-white shadow-red-200 active:scale-95"
+          }`}
+        >
+          {carregando ? "Calculando Rota..." : "Analisar Logística ➔"}
+        </button>
+      </footer>
     </main>
   );
 }
