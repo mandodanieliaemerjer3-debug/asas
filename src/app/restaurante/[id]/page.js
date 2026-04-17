@@ -2,146 +2,169 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { db } from "../../../lib/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, collection, query, where } from "firebase/firestore";
 import { useAuth } from "../../../contexts/AuthContext";
+import RodapeNav from "../../../components/RodapeNav";
 
-import comidasLocais from "../../../data/comidas.json";
-import restaurantesLocais from "../../../data/restaurantes.json";
-
-export default function PaginaDoRestaurante() {
+export default function PaginaExclusivaRestaurante() {
   const params = useParams();
   const id = params?.id;
-  
   const router = useRouter();
   const { user } = useAuth();
 
   const [restaurante, setRestaurante] = useState(null);
-  const [carregando, setCarregando] = useState(true);
   const [cardapio, setCardapio] = useState([]);
   const [cart, setCart] = useState([]);
-  const [saldoReal, setSaldoReal] = useState(0);
-
-  // FUNÇÃO DE PARTILHA
-  const compartilharCardapio = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Cardápio - ${restaurante.name}`,
-          text: `Confira o nosso cardápio no Guapiara Delivery e peça agora!`,
-          url: window.location.href, // Pega o link exato da página atual
-        });
-      } catch (err) {
-        console.log("Erro ao partilhar", err);
-      }
-    } else {
-      // Caso o navegador não suporte partilha (PC antigo), copia o link
-      navigator.clipboard.writeText(window.location.href);
-      alert("Link copiado para a área de transferência!");
-    }
-  };
+  const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
     if (!id) return;
-    const lojaEncontrada = restaurantesLocais.find(r => String(r.id) === String(id));
-    if (lojaEncontrada) {
-      setRestaurante(lojaEncontrada);
-      const itensFiltrados = comidasLocais.filter(item => String(item.restaurantId) === String(id));
-      setCardapio(itensFiltrados);
-    }
-    setCarregando(false);
+
+    // 1. Busca Dados Dinâmicos do Restaurante (Banner e Logo do Firebase)
+    const unsubRes = onSnapshot(doc(db, "restaurants", id), (docSnap) => {
+      if (docSnap.exists()) setRestaurante(docSnap.data());
+    });
+
+    // 2. Filtra apenas os produtos deste restaurante específico
+    const q = query(collection(db, "products"), where("restaurantId", "==", id));
+    const unsubProd = onSnapshot(q, (snap) => {
+      setCardapio(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    return () => { unsubRes(); unsubProd(); };
   }, [id]);
 
+  // Sincroniza Moedas e Perfil
   useEffect(() => {
     if (!user) return;
     const unsub = onSnapshot(doc(db, "users", user.uid), (snap) => {
-      if (snap.exists()) setSaldoReal(snap.data().moedas || 0);
+      if (snap.exists()) setUserProfile(snap.data());
     });
     return () => unsub();
   }, [user]);
 
-  const adicionarAoCarrinho = (item) => {
-    const currentCart = localStorage.getItem("carrinho") ? JSON.parse(localStorage.getItem("carrinho")) : [];
-    const novoCarrinho = [...currentCart, item];
-    setCart(novoCarrinho);
-    localStorage.setItem("carrinho", JSON.stringify(novoCarrinho));
-  };
-
-  if (carregando) return <div className="p-20 text-center font-black uppercase italic animate-pulse text-red-600">Carregando...</div>;
-
-  if (!restaurante) return <div className="p-20 text-center font-black">Loja não encontrada!</div>;
+  if (!restaurante) return (
+    <div className="h-screen flex items-center justify-center bg-white">
+      <div className="animate-bounce font-black italic uppercase text-red-600">Mogu Mogu Cozinha...</div>
+    </div>
+  );
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-44 font-sans max-w-md mx-auto border-x border-gray-100 text-gray-900">
+    <main className="min-h-screen bg-white pb-40 max-w-md mx-auto shadow-2xl relative overflow-x-hidden font-sans">
       
-      {/* HEADER COM BOTÃO DE PARTILHA */}
-      <header className="bg-white p-6 rounded-b-[45px] shadow-sm mb-6 border-b border-gray-100 relative">
-        <div className="flex justify-between items-start mb-6">
-          <button onClick={() => router.push("/")} className="text-gray-300 font-black text-[9px] uppercase italic tracking-[3px]">← Guapiara Delivery</button>
-          
-          {/* BOTÃO DE PARTILHA */}
-          <button 
-            onClick={compartilharCardapio}
-            className="bg-green-50 text-green-600 p-3 rounded-2xl flex items-center gap-2 active:scale-90 transition"
-          >
-            <span className="text-xs font-black uppercase italic">Enviar</span>
-            <span className="text-lg">📲</span>
-          </button>
-        </div>
+      {/* 📸 HEADER IMPACTANTE: FOTO DA EQUIPE (BANNER) */}
+      <div className="relative h-64 w-full">
+        <img 
+          src={restaurante.banner || "/images/placeholder-banner.jpg"} 
+          className="w-full h-full object-cover" 
+          alt="Equipe do Restaurante" 
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-black/40"></div>
+        
+        {/* Botão Voltar Transparente */}
+        <button 
+          onClick={() => router.back()} 
+          className="absolute top-6 left-6 w-12 h-12 bg-white/10 backdrop-blur-lg rounded-2xl flex items-center justify-center text-white border border-white/20 active:scale-90 transition"
+        >
+          ←
+        </button>
+      </div>
 
-        <div className="flex items-center gap-4">
-          <div className="w-20 h-20 rounded-full bg-gray-50 overflow-hidden border-4 border-white shadow-md">
-             <img src={restaurante.image} className="w-full h-full object-cover" alt={restaurante.name} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black uppercase italic tracking-tighter leading-none">{restaurante.name}</h1>
-            <p className="text-[9px] font-black text-red-600 uppercase mt-2 italic">Toque em "Enviar" para partilhar este cardápio</p>
+      {/* 🏬 IDENTIDADE VISUAL: LOGO (FACHADA) SOBREPOSTO */}
+      <div className="px-6 -mt-16 relative z-10 flex items-end gap-5">
+        <div className="w-28 h-28 rounded-[35px] border-[6px] border-white shadow-2xl overflow-hidden bg-gray-50 transform rotate-3">
+          <img 
+            src={restaurante.logo} 
+            className="w-full h-full object-cover" 
+            alt="Logo do Estabelecimento" 
+          />
+        </div>
+        <div className="mb-2 pb-1">
+          <h1 className="text-gray-900 font-black text-2xl uppercase italic leading-tight tracking-tighter">
+            {restaurante.name}
+          </h1>
+          <div className="flex gap-2 mt-1">
+            <span className="bg-black text-white text-[8px] font-black px-3 py-1 rounded-full uppercase italic">
+              {restaurante.category}
+            </span>
+            {restaurante.aberto !== false && (
+              <span className="bg-green-500 text-white text-[8px] font-black px-3 py-1 rounded-full uppercase italic animate-pulse">
+                Aberto Agora
+              </span>
+            )}
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* LISTA DE PRODUTOS */}
-      <section className="px-4 space-y-4">
-        {cardapio.map(item => (
-          <div key={item.id} className="bg-white p-4 rounded-[35px] shadow-sm flex items-center gap-4 border border-white">
-            <img src={item.image} className="w-24 h-24 rounded-[28px] object-cover" alt={item.name} />
-            <div className="flex-1">
-              <h3 className="text-sm font-black uppercase italic leading-tight">{item.name}</h3>
-              <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase line-clamp-2">{item.description}</p>
-              <div className="flex justify-between items-center mt-4">
-                <span className="text-green-600 font-black italic text-base font-mono">R$ {item.price.toFixed(2)}</span>
-                <button 
-                  onClick={() => adicionarAoCarrinho(item)}
-                  className="bg-red-600 text-white w-10 h-10 rounded-2xl font-black text-xl shadow-lg active:scale-90 transition"
-                >
-                  +
-                </button>
+      {/* ⭐ DESTAQUE: MODA DO CHEF */}
+      {cardapio.some(p => p.tags?.includes("chef")) && (
+        <section className="mt-10 px-6">
+          <div className="flex justify-between items-end mb-4">
+            <h2 className="font-black text-[11px] uppercase italic text-orange-600 tracking-widest">
+              👨‍🍳 Sugestões do Chef
+            </h2>
+          </div>
+          <div className="flex gap-4 overflow-x-auto no-scrollbar py-2">
+            {cardapio.filter(p => p.tags?.includes("chef")).map(item => (
+              <div key={item.id} className="min-w-[160px] bg-orange-50/50 p-4 rounded-[40px] border border-orange-100/50 shadow-sm">
+                <img src={item.image} className="w-full h-28 object-cover rounded-[30px] mb-3 shadow-md" />
+                <p className="font-black text-[10px] uppercase italic text-gray-800 line-clamp-1">{item.name}</p>
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-orange-600 font-black text-sm italic">R$ {item.price?.toFixed(2)}</span>
+                  <button className="bg-orange-500 text-white w-7 h-7 rounded-full font-black">+</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 🍔 CARDÁPIO COMPLETO */}
+      <section className="mt-10 px-6">
+        <h2 className="font-black text-[11px] uppercase italic text-gray-400 mb-6 tracking-[0.2em]">
+          Cardápio Completo
+        </h2>
+        <div className="grid gap-6">
+          {cardapio.map(item => (
+            <div 
+              key={item.id} 
+              className="flex items-center gap-5 p-4 bg-white rounded-[40px] border border-gray-100 shadow-sm hover:shadow-md transition active:scale-[0.98]"
+            >
+              <div className="relative">
+                 <img src={item.image} className="w-24 h-24 rounded-[30px] object-cover shadow-inner" />
+                 {item.popular && (
+                   <span className="absolute -top-2 -left-2 bg-red-600 text-white text-[7px] font-black px-2 py-1 rounded-lg uppercase italic shadow-lg">Popular</span>
+                 )}
+              </div>
+              <div className="flex-1 flex flex-col h-24 justify-center">
+                <h3 className="font-black text-[13px] uppercase italic text-gray-800 leading-tight">
+                  {item.name}
+                </h3>
+                <p className="text-[9px] text-gray-400 font-bold mt-1 line-clamp-2 leading-none italic uppercase">
+                  {item.description || "Ingredientes selecionados de Guapiara"}
+                </p>
+                <div className="flex justify-between items-center mt-auto">
+                  <span className="text-red-600 font-black text-base italic tracking-tighter">R$ {item.price?.toFixed(2)}</span>
+                  <button className="bg-black text-white px-6 py-2 rounded-2xl font-black text-[9px] uppercase italic shadow-lg active:bg-red-600 transition">
+                    + Pedir
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </section>
 
-      {/* RODAPÉ COM SALDO REAL */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-50">
-        <div className="bg-white/95 backdrop-blur-xl border-t border-gray-100 px-6 py-8 flex justify-between items-center rounded-t-[50px] shadow-[0_-15px_50px_rgba(0,0,0,0.1)]">
-           <div className="bg-gray-900 px-6 py-3 rounded-full flex items-center gap-3">
-              <span className="text-xl">🪙</span>
-              <div className="flex flex-col text-white font-black leading-none">
-                 <span className="text-[8px] text-yellow-400 uppercase tracking-tighter">Saldo</span>
-                 <span className="text-base">{saldoReal}</span>
-              </div>
-           </div>
+      {/* Rodapé Dinâmico com Saldo do Firebase */}
+      <RodapeNav 
+        saldo={userProfile?.moedas || 0} 
+        cartCount={cart.length} 
+        router={router} 
+      />
 
-           {cart.length > 0 && (
-             <button 
-                onClick={() => router.push("/checkout")}
-                className="bg-red-600 text-white px-8 py-5 rounded-3xl font-black uppercase italic text-[11px] shadow-xl"
-             >
-                Ver Sacola ({cart.length})
-             </button>
-           )}
-        </div>
-      </nav>
+      <style jsx global>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+      `}</style>
     </main>
   );
 }

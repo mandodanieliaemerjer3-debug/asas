@@ -1,140 +1,233 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { db } from "../../lib/firebase"; //
-import { getDocs, collection, doc, getDoc } from "firebase/firestore";
+import { db } from "../../lib/firebase";
+import { collection, getDocs, getDoc, doc, addDoc } from "firebase/firestore";
 import { useAuth } from "../../contexts/AuthContext";
 
-export default function CheckoutFase1() {
+import Bebidas from "./Bebidas";
+import Endereco from "./Endereco";
+
+export default function CheckoutPage() {
   const { user } = useAuth();
   const router = useRouter();
 
   const [cart, setCart] = useState([]);
-  const [bairros, setBairros] = useState([]);
-  const [bairroSelecionado, setBairroSelecionado] = useState(null);
-  const [rua, setRua] = useState("");
-  const [numero, setNumero] = useState("");
+  const [bebidasCart, setBebidasCart] = useState([]);
+  const [docesCart, setDocesCart] = useState([]);
+
+  const [neighborhoods, setNeighborhoods] = useState([]);
+  const [selectedBairro, setSelectedBairro] = useState(null);
+  const [taxaFinal, setTaxaFinal] = useState(0);
+
+  const [address, setAddress] = useState({ rua: "", numero: "" });
   const [loading, setLoading] = useState(true);
 
-  // ⚖️ CÁLCULO DA BALANÇA (PONTOS)
-  const totalPontos = cart.reduce((acc, item) => {
-    const p = item.category === "Bebidas" ? 5 : (item.category === "Pizzas" ? 2 : 1);
-    return acc + p;
-  }, 0);
-
   useEffect(() => {
-    const carregarDados = async () => {
-      // 1. Carrega carrinho local
-      const savedCart = localStorage.getItem("carrinho");
-      if (savedCart) setCart(JSON.parse(savedCart));
-      else router.push("/");
+    const init = async () => {
+      setCart(JSON.parse(localStorage.getItem("carrinho") || "[]"));
+      setBebidasCart(JSON.parse(localStorage.getItem("bebidasCarrinho") || "[]"));
+      setDocesCart(JSON.parse(localStorage.getItem("docesCarrinho") || "[]"));
 
-      // 2. Carrega lista de bairros do Firebase
-      const bSnap = await getDocs(collection(db, "neighborhoods"));
-      const listaBairros = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setBairros(listaBairros);
+      const snap = await getDocs(collection(db, "neighborhoods"));
+      const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setNeighborhoods(lista);
 
-      // 3. PUXA O BAIRRO E ENDEREÇO DO USUÁRIO AUTOMATICAMENTE
       if (user) {
-        const uSnap = await getDoc(doc(db, "users", user.uid));
-        if (uSnap.exists()) {
-          const dadosUser = uSnap.data();
-          if (dadosUser.endereco) {
-            setRua(dadosUser.endereco.rua || "");
-            setNumero(dadosUser.endereco.numero || "");
-            
-            // Tenta pré-selecionar o bairro se o ID salvo coincidir
-            const bairroSalvo = listaBairros.find(b => b.id === dadosUser.endereco.bairroId);
-            if (bairroSalvo) setBairroSelecionado(bairroSalvo);
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+
+          if (data.endereco) {
+            setAddress({
+              rua: data.endereco.rua || "",
+              numero: data.endereco.numero || ""
+            });
+
+            if (data.endereco.bairroId) {
+              const bairro = lista.find(b => b.id === data.endereco.bairroId);
+              if (bairro) {
+                setSelectedBairro(bairro);
+                setTaxaFinal(bairro.fee || 0);
+              }
+            }
           }
         }
       }
+
       setLoading(false);
     };
-    carregarDados();
-  }, [user, router]);
 
-  const irParaRateio = () => {
-    if (!bairroSelecionado || !rua) return;
-    
-    // Salva os dados para as próximas fases
-    localStorage.setItem("pre_checkout", JSON.stringify({
-      bairro: bairroSelecionado,
-      rua,
-      numero,
-      pontosCarga: totalPontos
-    }));
+    init();
+  }, [user]);
 
-    // 🚀 NOVA DIREÇÃO: Manda para a página de Rateio antes da logística final
-    router.push("/checkout/rateio");
+  // REMOVER
+  const removerItem = (i) => {
+    const novo = cart.filter((_, index) => index !== i);
+    setCart(novo);
+    localStorage.setItem("carrinho", JSON.stringify(novo));
   };
 
-  if (loading) return <div className="p-20 text-center font-black animate-pulse text-zinc-400 uppercase italic">Pesando Carga...</div>;
+  const removerBebida = (i) => {
+    const novo = bebidasCart.filter((_, index) => index !== i);
+    setBebidasCart(novo);
+    localStorage.setItem("bebidasCarrinho", JSON.stringify(novo));
+  };
+
+  const removerDoce = (i) => {
+    const novo = docesCart.filter((_, index) => index !== i);
+    setDocesCart(novo);
+    localStorage.setItem("docesCarrinho", JSON.stringify(novo));
+  };
+
+  // VALORES
+  const subtotal = cart.reduce((a, b) => a + (b.price || 0), 0);
+  const totalBebidas = bebidasCart.reduce((a, b) => a + (b.preco || 0), 0);
+  const totalDoces = docesCart.reduce((a, b) => a + (b.preco || 0), 0);
+
+  const moedas = Math.floor(taxaFinal * 0.8);
+  const total = subtotal + totalBebidas + totalDoces + taxaFinal;
+
+  // FINALIZAR
+  const confirmarPedido = async () => {
+    if (!address.rua || !selectedBairro)
+      return alert("Preencha o endereço");
+
+    if (cart.length === 0)
+      return alert("Seu carrinho está vazio");
+
+    const pedido = {
+      clienteId: user?.uid || "anonimo",
+      endereco: {
+        ...address,
+        bairro: selectedBairro.name,
+        bairroId: selectedBairro.id
+      },
+      itens: cart,
+      bebidas: bebidasCart,
+      doces: docesCart,
+      valores: { total },
+      criadoEm: new Date().toISOString()
+    };
+
+    const ref = await addDoc(collection(db, "orders"), pedido);
+
+    localStorage.removeItem("carrinho");
+    localStorage.removeItem("bebidasCarrinho");
+    localStorage.removeItem("docesCarrinho");
+
+    router.push(`/pagamento/${ref.id}`);
+  };
+
+  if (loading) return <div className="p-10 text-center">Carregando...</div>;
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-10 max-w-md mx-auto text-black font-sans">
-      <header className="bg-white p-6 rounded-b-[45px] shadow-sm mb-6 text-center border-b border-gray-100">
-        <h1 className="text-2xl font-black uppercase italic tracking-tighter">Fase 1: Balança</h1>
-      </header>
+    <div className="min-h-screen bg-gray-50 max-w-md mx-auto p-4 pb-40">
 
-      <div className="px-4 space-y-4">
-        {/* CARD DA BALANÇA (VISUAL ANTIGO QUE VOCÊ GOSTA) */}
-        <div className="bg-zinc-900 text-white p-8 rounded-[40px] shadow-2xl flex justify-between items-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl rotate-12">⚖️</div>
-          <div className="relative z-10">
-            <p className="text-[10px] font-black uppercase italic opacity-40 tracking-widest">Volume da Carga</p>
-            <h3 className="text-3xl font-black italic uppercase">{totalPontos} Pontos</h3>
+      {/* BANNER */}
+      <img
+        src="/banner-doces.png"
+        className="w-full h-28 object-cover object-center rounded-2xl mb-4"
+      />
+
+      {/* ENDEREÇO */}
+      <Endereco
+        address={address}
+        setAddress={setAddress}
+        neighborhoods={neighborhoods}
+        selectedBairro={selectedBairro}
+        setSelectedBairro={setSelectedBairro}
+        setTaxaFinal={setTaxaFinal}
+      />
+
+      {/* 🔥 BEBIDAS (REPETIDOR AGORA EM CIMA) */}
+      <Bebidas
+        onAdd={(b) => {
+          const novo = [...bebidasCart, b];
+          setBebidasCart(novo);
+          localStorage.setItem("bebidasCarrinho", JSON.stringify(novo));
+        }}
+      />
+
+      {/* 🛒 CARRINHO PRINCIPAL */}
+      <div className="bg-white p-4 rounded-2xl mb-4">
+        <p className="font-bold mb-2">🍔 Pedido</p>
+
+        {cart.map((item, i) => (
+          <div key={i} className="flex justify-between mb-1">
+            <span>{item.name}</span>
+            <div className="flex gap-2">
+              <span>R$ {item.price}</span>
+              <button onClick={() => removerItem(i)}>❌</button>
+            </div>
           </div>
-          <div className="relative z-10 text-right">
-            <span className={`text-[9px] font-black px-4 py-1.5 rounded-full uppercase tracking-tighter ${totalPontos > 15 ? 'bg-red-600' : 'bg-green-600'}`}>
-              {totalPontos > 15 ? 'Carga Pesada' : 'Carga Leve'}
-            </span>
-          </div>
+        ))}
+      </div>
+
+      {/* 🥤 LISTA BEBIDAS */}
+      {bebidasCart.length > 0 && (
+        <div className="bg-white p-4 rounded-2xl mb-4">
+          <p className="font-bold mb-2">🥤 Bebidas</p>
+
+          {bebidasCart.map((b, i) => (
+            <div key={i} className="flex justify-between mb-1">
+              <span>{b.nome}</span>
+              <div className="flex gap-2">
+                <span>R$ {b.preco}</span>
+                <button onClick={() => removerBebida(i)}>❌</button>
+              </div>
+            </div>
+          ))}
         </div>
+      )}
 
-        {/* FORMULÁRIO DE ENDEREÇO COM AUTO-PREENCHIMENTO */}
-        <div className="bg-white p-6 rounded-[40px] shadow-sm space-y-4 border border-gray-100">
-          <p className="text-[10px] font-black uppercase text-zinc-400 ml-2 italic">Local de Entrega</p>
-          
-          <select 
-            className="w-full bg-gray-50 p-5 rounded-3xl font-bold text-sm outline-none border border-gray-100 appearance-none"
-            value={bairroSelecionado?.id || ""}
-            onChange={(e) => setBairroSelecionado(bairros.find(b => b.id === e.target.value))}
-          >
-            <option value="">Selecione seu Bairro...</option>
-            {bairros.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+      {/* 🍰 SOBREMESAS */}
+      {docesCart.length > 0 && (
+        <div className="bg-white p-4 rounded-2xl mb-4">
+          <p className="font-bold mb-2">🍰 Sobremesas</p>
 
-          <input 
-            placeholder="Sua Rua" 
-            className="w-full bg-gray-50 p-5 rounded-3xl font-bold text-sm outline-none border border-gray-100 focus:border-red-600 transition-all" 
-            value={rua} 
-            onChange={e => setRua(e.target.value)} 
-          />
-          
-          <input 
-            placeholder="Número ou Referência" 
-            className="w-full bg-gray-50 p-5 rounded-3xl font-bold text-sm outline-none border border-gray-100 focus:border-red-600 transition-all" 
-            value={numero} 
-            onChange={e => setNumero(e.target.value)} 
-          />
+          {docesCart.map((d, i) => (
+            <div key={i} className="flex justify-between mb-1">
+              <span>{d.nome}</span>
+              <div className="flex gap-2">
+                <span>R$ {d.preco}</span>
+                <button onClick={() => removerDoce(i)}>❌</button>
+              </div>
+            </div>
+          ))}
         </div>
+      )}
 
-        {/* BOTÃO DE AÇÃO PARA O RATEIO */}
-        <button 
-          onClick={irParaRateio}
-          disabled={!bairroSelecionado || !rua}
-          className="w-full bg-red-600 text-white py-6 rounded-[40px] font-black uppercase italic text-sm shadow-xl shadow-red-100 active:scale-95 transition disabled:opacity-20 mt-4"
+      {/* 🍰 BOTÃO GRANDE DOCES */}
+      <div className="bg-pink-100 p-4 rounded-3xl mb-4 text-center">
+        <p className="font-black text-pink-700 text-lg">
+          Ganhe 80% do frete
+        </p>
+
+        <button
+          onClick={() => router.push(`/doces?credito=${moedas}`)}
+          className="mt-3 w-full bg-pink-500 text-white p-4 rounded-2xl font-bold text-lg"
         >
-          Analisar Logística ➔
+          ESCOLHER SOBREMESA 🍰
         </button>
       </div>
 
-      <div className="mt-8 text-center px-10">
-         <p className="text-[10px] font-bold text-zinc-400 uppercase leading-tight">
-           Sua carga será processada pela nossa IA para agrupamento na linha das 19h.
-         </p>
+      {/* TOTAL */}
+      <div className="bg-white p-4 rounded-2xl">
+        <div className="flex justify-between font-bold text-lg">
+          <span>Total</span>
+          <span>R$ {total}</span>
+        </div>
       </div>
-    </main>
+
+      {/* FINALIZAR */}
+      <button
+        onClick={confirmarPedido}
+        className="fixed bottom-0 left-0 right-0 bg-black text-white p-5 font-bold text-lg"
+      >
+        FINALIZAR PEDIDO
+      </button>
+    </div>
   );
 }

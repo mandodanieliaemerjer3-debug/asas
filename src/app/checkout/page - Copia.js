@@ -2,107 +2,186 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "../../lib/firebase";
-import { getDocs, collection, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, addDoc } from "firebase/firestore";
 import { useAuth } from "../../contexts/AuthContext";
 
-export default function CheckoutFase1() {
+export default function CheckoutPage() {
   const { user } = useAuth();
   const router = useRouter();
-
+  
   const [cart, setCart] = useState([]);
-  const [bairros, setBairros] = useState([]);
-  const [bairroSelecionado, setBairroSelecionado] = useState(null);
-  const [rua, setRua] = useState("");
-  const [numero, setNumero] = useState("");
+  const [neighborhoods, setNeighborhoods] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Dados de Entrega
+  const [selectedBairro, setSelectedBairro] = useState(null);
+  const [taxaFinal, setTaxaFinal] = useState(0);
+  const [address, setAddress] = useState({ rua: "", numero: "" });
 
-  // ⚖️ CÁLCULO DA BALANÇA (PONTOS)
-  const totalPontos = cart.reduce((acc, item) => {
-    // Regra: Refri=5, Pizza=2, Lanche/Outros=1
-    const p = item.category === "Bebidas" ? 5 : (item.category === "Pizzas" ? 2 : 1);
-    return acc + p;
-  }, 0);
-
+  // 1. Carregar Dados Iniciais
   useEffect(() => {
-    const carregar = async () => {
+    const init = async () => {
+      // Puxa carrinho local
       const savedCart = localStorage.getItem("carrinho");
       if (savedCart) setCart(JSON.parse(savedCart));
-      else router.push("/");
 
-      const bSnap = await getDocs(collection(db, "neighborhoods"));
-      setBairros(bSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      // Busca lista de bairros para o select
+      const querySnap = await getDocs(collection(db, "neighborhoods"));
+      const bairrosList = querySnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setNeighborhoods(bairrosList);
 
+      // BUSCA AUTOMÁTICA: Dados do usuário logado
       if (user) {
-        const uSnap = await getDoc(doc(db, "users", user.uid));
-        if (uSnap.exists() && uSnap.data().endereco) {
-          const end = uSnap.data().endereco;
-          setRua(end.rua || ""); setNumero(end.numero || "");
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          if (userData.endereco) {
+            setAddress({
+              rua: userData.endereco.rua || "",
+              numero: userData.endereco.numero || ""
+            });
+            
+            // Se o usuário já tem um bairro salvo, calcula a taxa na hora
+            const bairroSalvo = bairrosList.find(b => b.name === userData.endereco.bairro);
+            if (bairroSalvo) {
+              executarCalculoLojistico(bairroSalvo);
+            }
+          }
         }
       }
       setLoading(false);
     };
-    carregar();
-  }, [user, router]);
+    init();
+  }, [user]);
 
-  const irParaLogistica = () => {
-    if (!bairroSelecionado || !rua) return;
+  // 2. FUNÇÃO "CAMUFLADA" DE CÁLCULO
+  // Ela soma Bairro + Linha sem citar o nome "Linha" na interface
+  const executarCalculoLojistico = async (bairro) => {
+    setSelectedBairro(bairro);
+    let valorBase = bairro.fee || 0;
+    let adicionalOculto = 0;
+
+    if (bairro.linhaId) {
+      const refOculta = doc(db, "lines", String(bairro.linhaId));
+      const snapOculto = await getDoc(refOculta);
+      if (snapOculto.exists()) {
+        adicionalOculto = snapOculto.data().price || 0;
+      }
+    }
     
-    // Salva os dados para a Fase 2 (A transição automática)
-    localStorage.setItem("pre_checkout", JSON.stringify({
-      bairro: bairroSelecionado,
-      rua,
-      numero,
-      pontosCarga: totalPontos
-    }));
-
-    // Manda para a página da Barra de Carregamento
-    router.push("/checkout/pre-logistica");
+    setTaxaFinal(valorBase + adicionalOculto);
   };
 
-  if (loading) return <div className="p-20 text-center font-black animate-pulse">CARREGANDO CARRINHO...</div>;
+  const subtotal = cart.reduce((acc, item) => acc + item.price, 0);
+  const totalGeral = subtotal + taxaFinal;
+
+  const confirmarPedido = async () => {
+    if (!selectedBairro || !address.rua) return alert("Por favor, verifique o endereço.");
+    
+    setLoading(true);
+    try {
+      const novoPedido = {
+        clienteNome: user?.displayName || "Cliente Guapiara",
+        clienteId: user?.uid || "anonimo",
+        criadoEm: new Date().toISOString().split('T')[0],
+        endereco: { 
+          ...address, 
+          bairro: selectedBairro.name,
+          linhaId: selectedBairro.linhaId 
+        },
+        itens: cart,
+        status: "Aguardando Pagamento",
+        valores: { 
+          subtotal, 
+          taxaEntrega: taxaFinal, // O banco salva o valor somado
+          total: totalGeral 
+        }
+      };
+
+      const docRef = await addDoc(collection(db, "orders"), novoPedido);
+      localStorage.removeItem("carrinho");
+      router.push(`/pagamento/${docRef.id}`);
+    } catch (e) {
+      console.error(e);
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <div className="p-10 text-center font-black italic">CARREGANDO...</div>;
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-10 max-w-md mx-auto text-black font-sans">
-      <header className="bg-white p-6 rounded-b-[45px] shadow-sm mb-6 text-center">
-        <h1 className="text-2xl font-black uppercase italic tracking-tighter">Fase 1: Balança</h1>
+    <div className="min-h-screen bg-gray-50 max-w-md mx-auto p-4 font-sans pb-32">
+      <header className="mb-6 flex items-center gap-4">
+        <button onClick={() => router.back()} className="text-2xl">❮</button>
+        <h1 className="font-black italic uppercase text-xl">Confirmar Entrega</h1>
       </header>
 
-      <div className="px-4 space-y-4">
-        {/* BALANÇA DE CARGA */}
-        <div className="bg-zinc-900 text-white p-6 rounded-[35px] shadow-xl flex justify-between items-center">
-          <div>
-            <p className="text-[10px] font-black uppercase italic opacity-40">Volume da Carga</p>
-            <h3 className="text-2xl font-black italic">{totalPontos} PONTOS</h3>
-          </div>
-          <div className="text-right">
-            <span className={`text-[8px] font-black px-3 py-1 rounded-full uppercase ${totalPontos > 15 ? 'bg-red-600' : 'bg-green-600'}`}>
-              {totalPontos > 15 ? 'Carga Pesada' : 'Carga Leve'}
-            </span>
-          </div>
-        </div>
-
-        {/* ENDEREÇO */}
-        <div className="bg-white p-6 rounded-[35px] shadow-sm space-y-4 border border-gray-100">
+      {/* ENDEREÇO */}
+      <section className="bg-white p-5 rounded-[32px] shadow-sm border border-gray-100 space-y-4">
+        <div>
+          <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Bairro / Localidade</label>
           <select 
-            className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-sm outline-none border border-gray-100"
-            onChange={(e) => setBairroSelecionado(bairros.find(b => b.id === e.target.value))}
+            value={selectedBairro?.id || ""}
+            onChange={(e) => {
+              const b = neighborhoods.find(nb => nb.id === e.target.value);
+              if (b) executarCalculoLojistico(b);
+            }}
+            className="w-full p-3 bg-gray-50 rounded-2xl font-bold border-none"
           >
-            <option value="">Selecione seu Bairro...</option>
-            {bairros.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            <option value="">Selecione o local</option>
+            {neighborhoods.map(b => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
           </select>
-
-          <input placeholder="Sua Rua" className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-sm outline-none" value={rua} onChange={e => setRua(e.target.value)} />
-          <input placeholder="Número" className="w-full bg-gray-50 p-4 rounded-2xl font-bold text-sm outline-none" value={numero} onChange={e => setNumero(e.target.value)} />
         </div>
 
+        <div className="grid grid-cols-3 gap-2">
+          <div className="col-span-2">
+            <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Rua / Logradouro</label>
+            <input 
+              type="text" value={address.rua}
+              onChange={e => setAddress({...address, rua: e.target.value})}
+              className="w-full p-3 bg-gray-50 rounded-2xl border-none text-sm font-bold"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Nº</label>
+            <input 
+              type="text" value={address.numero}
+              onChange={e => setAddress({...address, numero: e.target.value})}
+              className="w-full p-3 bg-gray-50 rounded-2xl border-none text-sm font-bold text-center"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* RESUMO DE VALORES (SEM MENCIONAR LINHAS) */}
+      <section className="mt-6 bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-gray-400 font-bold text-sm uppercase">Subtotal</span>
+          <span className="font-bold text-gray-800">R$ {subtotal.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between items-center mb-4">
+          <span className="text-gray-400 font-bold text-sm uppercase">Taxa de Entrega</span>
+          <span className="font-black text-red-600 italic">R$ {taxaFinal.toFixed(2)}</span>
+        </div>
+        <div className="border-t border-dashed pt-4 flex justify-between items-center">
+          <span className="font-black uppercase italic text-lg">Total a Pagar</span>
+          <span className="font-black text-3xl font-mono text-gray-900">R$ {totalGeral.toFixed(2)}</span>
+        </div>
+      </section>
+
+      {/* BOTÃO FINAL */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md max-w-md mx-auto">
         <button 
-          onClick={irParaLogistica}
-          disabled={!bairroSelecionado || !rua}
-          className="w-full bg-red-600 text-white py-6 rounded-[35px] font-black uppercase italic text-sm shadow-2xl active:scale-95 transition disabled:opacity-20"
+          onClick={confirmarPedido}
+          className="w-full bg-red-600 text-white py-5 rounded-[24px] font-black uppercase italic shadow-xl active:scale-95 transition"
         >
-          Analisar Logística ➔
+          Confirmar Pedido
         </button>
       </div>
-    </main>
+    </div>
   );
 }

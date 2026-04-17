@@ -1,0 +1,52 @@
+[
+  {
+    "id": "parceiro_rute",
+    "nome": "Salão da Rute",
+    "descricao": "Beleza e estética completa. Ganhe moedas ao agendar seu horário!",
+    "logo": "https://img.freepik.com/vetores-gratis/logotipo-de-salao-de-beleza_23-2148501534.jpg",
+    "linkZap": "https://wa.me/5515999999991",
+    "recompensaMoedas": 2,
+    "publicoAlvo": ["feminino", "mulher"],
+    "tagsInteresse": ["#beleza", "#estetica", "#cuidado"]
+  },
+  {
+    "id": "parceiro_23marco",
+    "nome": "Mercadão 23 de Março",
+    "descricao": "Ofertas exclusivas direto no seu WhatsApp. Confira o catálogo!",
+    "logo": "https://cdn-icons-png.flaticon.com/512/3081/3081918.png",
+    "linkZap": "https://wa.me/5515999999992",
+    "recompensaMoedas": 1,
+    "publicoAlvo": ["todos"],
+    "tagsInteresse": ["#mercado", "#compras", "#casa"]
+  },
+  {
+    "id": "parceiro_luiz",
+    "nome": "Borracharia Seu Luiz",
+    "descricao": "Socorro rápido e pneus. Conheça nossos serviços e ganhe moedas!",
+    "logo": "https://cdn-icons-png.flaticon.com/512/2965/2965313.png",
+    "linkZap": "https://wa.me/5515999999993",
+    "recompensaMoedas": 1,
+    "publicoAlvo": ["todos"],
+    "tagsInteresse": ["#carro", "#moto", "#viagem"]
+  },
+  {
+    "id": "parceiro_sampaio",
+    "nome": "Academia Sampaio",
+    "descricao": "Treino focado em resultados. Clique para ganhar seu bônus de moedas!",
+    "logo": "https://cdn-icons-png.flaticon.com/512/2964/2964514.png",
+    "linkZap": "https://wa.me/5515999999994",
+    "recompensaMoedas": 3,
+    "publicoAlvo": ["todos"],
+    "tagsInteresse": ["#fitness", "#academia", "#saude"]
+  },
+  {
+    "id": "parceiro_rubes",
+    "nome": "Pilates Dr. Rubes",
+    "descricao": "Postura e bem-estar. Saiba mais sobre o método e ganhe PapáCash.",
+    "logo": "https://cdn-icons-png.flaticon.com/512/3144/3144573.png",
+    "linkZap": "https://wa.me/5515999999995",
+    "recompensaMoedas": 3,
+    "publicoAlvo": ["todos"],
+    "tagsInteresse": ["#saude", "#pilates", "#bemestar"]
+  }
+]

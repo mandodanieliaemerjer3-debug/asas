@@ -1,0 +1,49 @@
+{
+  "error": "Recusado",
+  "detalhe_real": "Payer email forbidden",
+  "relatorio_debug": {
+    "dica": "Veja se email de teste pertence à mesma conta",
+    "erro_completo": {
+      "message": "Payer email forbidden",
+      "error": "forbidden",
+      "status": 403,
+      "cause": [
+        {
+          "code": 4390,
+          "description": "Payer email forbidden",
+          "data": "20-03-2026T21:02:45UTC;68987cae-b4f1-49ab-b61b-3e07fd6f8e82"
+        }
+      ]
+    }
+  }
+}
+Obrigado por enviar os detalhes do erro, Armando! Entendi que você está recebendo o erro 403 "Payer email forbidden" (código 4390) ao tentar processar o pagamento via Checkout API.
+
+Esse erro acontece porque o e-mail do pagador (payer_email) utilizado:
+
+Não está autorizado com as credenciais usadas na integração
+Ou pertence a uma conta diferente daquela que você está autenticado (credenciais do vendedor e pagador incompatíveis)
+Ou é um e-mail de teste usado no ambiente errado (e-mail de teste só deve ser usado em ambiente de teste)
+O que você deve conferir e corrigir:
+
+Garanta que ambas as contas (vendedor e pagador) estejam no mesmo ambiente:
+
+Em ambiente de teste: use sempre credenciais e e-mails de teste em ambas as pontas (não misture)
+Em produção: use usuários e e-mails reais
+O e-mail do comprador não pode ser o mesmo do vendedor (dono das credenciais de autenticação). Eles devem ser diferentes, mas ambos precisam ser do mesmo tipo/ambiente (teste ou produção).
+
+No ambiente de teste:
+
+Crie usuários de teste seguindo a documentação oficial (veja como criar e-mails de teste e usar corretamente)
+Cadastre o e-mail de pagador gerado para ambiente de teste no momento da criação dos usuários de teste
+Evite cache ou credenciais salvas:
+Limpe as variáveis de ambiente e confirme se não há credenciais antigas armazenadas por engano.
+
+Saiba mais nesses links:
+
+Como corrigir “Payer email forbidden” e credenciais de teste/prod corretamente
+veja como criar e-mails de teste e usar corretamente
+Erros comuns na criação de token de cartão
+Se reorganizar essas configurações mas ainda tiver o erro, me avise! Caso prefira, posso te ajudar a abrir um chamado técnico com todos os detalhes que você forneceu.
+
+Essas orientações ajudaram? Vai conseguir testar novamente com as dicas acima?
