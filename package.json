@@ -15,6 +15,7 @@
   "description": "",
   "dependencies": {
     "@mercadopago/sdk-react": "^1.0.7",
+    "browser-image-compression": "^2.0.2",
     "firebase": "^11.3.1",
     "firebase-admin": "^13.7.0",
     "mercadopago": "^2.12.0",
