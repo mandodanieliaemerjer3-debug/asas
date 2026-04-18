@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { db } from "../../lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
@@ -15,45 +14,30 @@ export default function DocesPage() {
   const [moedasUser, setMoedasUser] = useState(0);
   const [creditoExtra, setCreditoExtra] = useState(0);
   const [carrinhoDoces, setCarrinhoDoces] = useState([]);
-  const [loaded, setLoaded] = useState(false); // 👈 controle extra
 
   useEffect(() => {
-    if (!searchParams) return;
-
     const carregar = async () => {
-      try {
-        const snap = await getDocs(collection(db, "doces"));
-        const lista = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setDoces(lista);
+      const snap = await getDocs(collection(db, "doces"));
+      const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setDoces(lista);
 
-        if (user) {
-          setMoedasUser(user.moedas || 0);
-        }
-
-        // 👇 agora seguro
-        const credito = Number(searchParams.get("credito")) || 0;
-        setCreditoExtra(credito);
-
-        if (typeof window !== "undefined") {
-          const saved = localStorage.getItem("docesCarrinho");
-          if (saved) setCarrinhoDoces(JSON.parse(saved));
-        }
-
-        setLoaded(true);
-      } catch (e) {
-        console.error("Erro ao carregar doces:", e);
+      if (user) {
+        setMoedasUser(user.moedas || 0);
       }
+
+      const credito = Number(searchParams.get("credito")) || 0;
+      setCreditoExtra(credito);
+
+      const saved = localStorage.getItem("docesCarrinho");
+      if (saved) setCarrinhoDoces(JSON.parse(saved));
     };
 
     carregar();
-  }, [user, searchParams]);
+  }, [user]);
 
   const totalDisponivel = moedasUser + creditoExtra;
 
-  const totalCarrinho = carrinhoDoces.reduce(
-    (acc, item) => acc + item.preco,
-    0
-  );
+  const totalCarrinho = carrinhoDoces.reduce((acc, item) => acc + item.preco, 0);
 
   const adicionarDoce = (doce) => {
     const novoTotal = totalCarrinho + doce.preco;
@@ -65,23 +49,12 @@ export default function DocesPage() {
 
     const novoCarrinho = [...carrinhoDoces, doce];
     setCarrinhoDoces(novoCarrinho);
-
-    if (typeof window !== "undefined") {
-      localStorage.setItem("docesCarrinho", JSON.stringify(novoCarrinho));
-    }
+    localStorage.setItem("docesCarrinho", JSON.stringify(novoCarrinho));
   };
 
   const finalizar = () => {
     router.push("/checkout");
   };
-
-  if (!loaded) {
-    return (
-      <div className="p-10 text-center font-bold">
-        Carregando doces...
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-pink-50 max-w-md mx-auto p-4 pb-32">
@@ -97,7 +70,7 @@ export default function DocesPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {doces.map((doce) => (
+        {doces.map(doce => (
           <div key={doce.id} className="bg-white p-3 rounded-2xl shadow">
             {doce.imagem && (
               <img
