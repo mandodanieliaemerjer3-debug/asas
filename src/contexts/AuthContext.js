@@ -44,59 +44,47 @@ export const AuthProvider = ({ children }) => {
   const loginGoogle = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      return await signInWithPopup(auth, provider);
+      await signInWithPopup(auth, provider);
     } catch (error) {
-      console.error("Erro no Google Login:", error);
-      throw error;
+      console.error("Erro ao logar com Google", error);
     }
   };
 
-  const loginPhone = async (phoneNumber, appVerifier) => {
-    try {
-      return await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
-    } catch (error) {
-      console.error("Erro no Login Celular:", error);
-      throw error;
-    }
-  };
+  const logout = () => signOut(auth);
 
-  // FINALIZAR CADASTRO (Respeitando as Regras de Segurança)
   const finalizarCadastro = async (cpf) => {
     if (!tempUser) return;
-    
-    // OBJETO REVISADO: Não enviamos 'moedas' ou 'isAdmin' para não dar erro de permissão
-    const novoUsuario = {
+
+    const userData = {
       uid: tempUser.uid,
-      nome: tempUser.displayName?.split(" ")[0] || "Cliente", 
-      email: tempUser.email || "",
+      nome: tempUser.displayName || "Usuário Mogu",
+      email: tempUser.email,
+      foto: tempUser.photoURL,
       cpf: cpf,
-      criadoEm: new Date().toISOString(),
-      endereco: { rua: "", numero: "", bairroId: "" }
+      moedas: 0,
+      level: 1,
+      xp: 0,
+      createdAt: new Date().toISOString()
     };
 
     try {
-      // Grava apenas os dados permitidos pelas suas regras
-      await setDoc(doc(db, "users", tempUser.uid), novoUsuario);
-      setUser(novoUsuario);
+      await setDoc(doc(db, "users", tempUser.uid), userData);
+      setUser(userData);
       setShowCPFModal(false);
       setTempUser(null);
     } catch (error) {
-      console.error("Erro de Permissão no Firebase:", error);
-      alert("Erro ao salvar: Verifique se você já possui cadastro.");
+      console.error("Erro ao salvar cadastro:", error);
+      alert("Erro ao salvar seus dados. Tente novamente.");
     }
   };
 
-  const logout = async () => {
-    setUser(null);
-    await signOut(auth);
-  };
-
   return (
-    <AuthContext.Provider value={{ user, loginGoogle, loginPhone, logout, loading }}>
-      {!loading && children}
+    <AuthContext.Provider value={{ user, loading, loginGoogle, logout }}>
+      {children}
 
+      {/* MODAL DE CPF - SEGURANÇA MOGU MOGU */}
       {showCPFModal && (
-        <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-6 backdrop-blur-md">
+        <div className="fixed inset-0 z- flex items-center justify-center p-6 backdrop-blur-md">
           <div className="bg-white rounded-[35px] p-8 max-w-sm w-full shadow-2xl text-center border-4 border-yellow-400">
             <div className="text-5xl mb-4">🛡️</div>
             <h2 className="font-black uppercase italic text-xl text-gray-800">Segurança Mogu Mogu</h2>
@@ -109,16 +97,22 @@ export const AuthProvider = ({ children }) => {
             <input 
               id="cpfInput"
               type="text" 
-              maxLength="11"
-              placeholder="DIGITE SEU CPF"
+              maxLength="14" // Alterado para 14 para aceitar pontos e traços
+              placeholder="000.000.000-00"
               className="w-full bg-gray-100 p-4 rounded-2xl font-black text-center outline-none border-2 border-transparent focus:border-yellow-400"
             />
 
             <button 
               onClick={() => {
+                // Captura o valor e remove tudo que não for número
                 const val = document.getElementById("cpfInput").value.replace(/\D/g, '');
-                if(val.length === 11) finalizarCadastro(val);
-                else alert("CPF inválido (use 11 números)");
+                
+                // Agora validamos se restaram exatamente 11 números
+                if(val.length === 11) {
+                  finalizarCadastro(val);
+                } else {
+                  alert("CPF inválido (use 11 números)");
+                }
               }}
               className="w-full mt-5 bg-black text-white p-5 rounded-[20px] font-black uppercase italic active:scale-95"
             >
