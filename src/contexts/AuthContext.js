@@ -22,7 +22,7 @@ export const AuthProvider = ({ children }) => {
   const [cpfValue, setCpfValue] = useState("");
   const [listaBairros, setListaBairros] = useState([]);
 
-  // 1. Monitoramento do Estado de Autenticação
+  // 1. Monitoramento do Estado do Usuário
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authState) => {
       if (authState) {
@@ -30,11 +30,11 @@ export const AuthProvider = ({ children }) => {
         const userSnap = await getDoc(userRef);
 
         if (userSnap.exists()) {
-          const dadosExistentes = userSnap.data();
-          setUser({ uid: authState.uid, ...dadosExistentes });
+          const dados = userSnap.data();
+          setUser({ uid: authState.uid, ...dados });
           
-          // Abre modal de endereço se faltar rua ou bairroId
-          if (!dadosExistentes.endereco?.rua || !dadosExistentes.endereco?.bairroId) {
+          // Verifica se o endereço está completo (Rua e ID do Bairro)
+          if (!dados.endereco?.rua || !dados.endereco?.bairroId) {
             setShowAddressModal(true);
           }
         } else {
@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  // 2. Busca de Bairros no Firestore quando o modal abre
+  // 2. Busca os bairros na coleção "bairros" (Plural conforme sua imagem)
   useEffect(() => {
     if (showAddressModal) {
       const fetchBairros = async () => {
@@ -57,7 +57,7 @@ export const AuthProvider = ({ children }) => {
           const querySnapshot = await getDocs(collection(db, "bairros"));
           const bairrosData = querySnapshot.docs.map(doc => ({
             id: doc.id,
-            ...doc.data()
+            nome: doc.data().nome 
           }));
           setListaBairros(bairrosData);
         } catch (error) {
@@ -102,13 +102,11 @@ export const AuthProvider = ({ children }) => {
       {/* MODAL CPF */}
       {showCPFModal && (
         <div className="fixed inset-0 bg-black/90 z- flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md rounded-[40px] p-8 text-center shadow-2xl">
-            <div className="text-4xl mb-2">🛡️</div>
+          <div className="bg-white w-full max-w-md rounded-[40px] p-8 text-center">
             <h2 className="font-black uppercase italic text-xl text-gray-800">Segurança Mogu</h2>
-            <p className="text-[10px] font-bold text-gray-500 my-4 uppercase">Validar CPF para pagamentos</p>
             <input 
               type="text" value={cpfValue} onChange={handleCpfChange} placeholder="000.000.000-00"
-              className="w-full bg-gray-100 p-4 rounded-2xl font-black text-center text-xl outline-none border-2 border-transparent focus:border-yellow-400"
+              className="w-full bg-gray-100 p-4 rounded-2xl font-black text-center text-xl outline-none mt-4 border-2 border-transparent focus:border-yellow-400"
             />
             <button 
               onClick={() => {
@@ -116,7 +114,7 @@ export const AuthProvider = ({ children }) => {
                 if(limpo.length === 11) finalizarCadastroCPF(limpo);
                 else alert("CPF incompleto!");
               }}
-              className="w-full mt-4 bg-black text-white p-5 rounded-[20px] font-black uppercase italic active:scale-95"
+              className="w-full mt-4 bg-black text-white p-5 rounded-[20px] font-black uppercase italic active:scale-95 transition-all"
             >
               Confirmar
             </button>
@@ -124,14 +122,13 @@ export const AuthProvider = ({ children }) => {
         </div>
       )}
 
-      {/* MODAL ENDEREÇO (ESTILO GAVETA CENTRALIZADA) */}
+      {/* MODAL ENDEREÇO - GAVETA CENTRALIZADA FIXA */}
       {showAddressModal && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z- flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-md z- flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-[35px] p-6 shadow-2xl flex flex-col max-h-[90vh]">
             
             <div className="text-center mb-4">
-              <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
-              <h2 className="font-black uppercase italic text-2xl text-gray-800">Sua Localização</h2>
+              <h2 className="font-black uppercase italic text-2xl text-gray-800 leading-tight">Onde entregamos?</h2>
               <p className="text-gray-400 font-bold uppercase text-[10px]">Guapiara - SP</p>
             </div>
 
@@ -139,16 +136,16 @@ export const AuthProvider = ({ children }) => {
               <div className="space-y-1">
                 <label className="text-[10px] font-black ml-4 text-gray-400 uppercase">Rua e Número</label>
                 <div className="flex gap-2">
-                  <input id="rua" type="text" placeholder="Nome da Rua" className="flex-1 bg-gray-100 p-4 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-red-500"/>
+                  <input id="rua" type="text" placeholder="Rua" className="flex-1 bg-gray-100 p-4 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-red-500"/>
                   <input id="numero" type="text" placeholder="Nº" className="w-20 bg-gray-100 p-4 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-red-500"/>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black ml-4 text-gray-400 uppercase">Bairro</label>
+                <label className="text-[10px] font-black ml-4 text-gray-400 uppercase">Selecione o Bairro</label>
                 <div className="relative">
                   <select id="bairroId" className="w-full bg-gray-100 p-4 rounded-2xl font-bold outline-none appearance-none border-2 border-transparent focus:border-red-500">
-                    <option value="">Selecione o Bairro...</option>
+                    <option value="">Escolha seu bairro...</option>
                     {listaBairros.map((b) => (
                       <option key={b.id} value={b.id}>{b.nome}</option>
                     ))}
@@ -158,11 +155,12 @@ export const AuthProvider = ({ children }) => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black ml-4 text-gray-400 uppercase">Complemento / Referência</label>
-                <input id="ref" type="text" placeholder="Ex: Próximo à praça" className="w-full bg-gray-100 p-4 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-red-500"/>
+                <label className="text-[10px] font-black ml-4 text-gray-400 uppercase">Ponto de Referência</label>
+                <input id="ref" type="text" placeholder="Ex: Perto da escola" className="w-full bg-gray-100 p-4 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-red-500"/>
               </div>
             </div>
 
+            {/* BOTÃO FIXO NO RODAPÉ DO MODAL */}
             <button 
               onClick={async () => {
                 const rua = document.getElementById("rua").value;
@@ -184,9 +182,9 @@ export const AuthProvider = ({ children }) => {
                 setUser({...user, endereco: endCompleto});
                 setShowAddressModal(false);
               }}
-              className="w-full bg-red-600 text-white p-5 rounded-[25px] font-black uppercase italic shadow-lg active:scale-95 transition-transform shrink-0"
+              className="w-full bg-red-600 text-white p-5 rounded-[25px] font-black uppercase italic shadow-lg active:scale-95 transition-all shrink-0"
             >
-              Confirmar Endereço
+              Confirmar e Entrar
             </button>
           </div>
         </div>
