@@ -7,7 +7,7 @@ import {
   GoogleAuthProvider 
 } from "firebase/auth";
 import { auth, db } from "../lib/firebase";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs } from "firebase/firestore";
 
 const AuthContext = createContext({});
 
@@ -20,7 +20,9 @@ export const AuthProvider = ({ children }) => {
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [tempUser, setTempUser] = useState(null);
   const [cpfValue, setCpfValue] = useState("");
+  const [listaBairros, setListaBairros] = useState([]);
 
+  // 1. Monitoramento do Estado de Autenticação
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authState) => {
       if (authState) {
@@ -31,12 +33,11 @@ export const AuthProvider = ({ children }) => {
           const dadosExistentes = userSnap.data();
           setUser({ uid: authState.uid, ...dadosExistentes });
           
-          // LÓGICA DE ENDEREÇO: Se não tiver rua ou bairro, abre o popup
-          if (!dadosExistentes.endereco || !dadosExistentes.endereco.rua || !dadosExistentes.endereco.bairro) {
+          // Abre modal de endereço se faltar rua ou bairroId
+          if (!dadosExistentes.endereco?.rua || !dadosExistentes.endereco?.bairroId) {
             setShowAddressModal(true);
           }
         } else {
-          // Usuário novo: primeiro pede o CPF
           setTempUser(authState);
           setShowCPFModal(true);
         }
@@ -47,6 +48,25 @@ export const AuthProvider = ({ children }) => {
     });
     return () => unsubscribe();
   }, []);
+
+  // 2. Busca de Bairros no Firestore quando o modal abre
+  useEffect(() => {
+    if (showAddressModal) {
+      const fetchBairros = async () => {
+        try {
+          const querySnapshot = await getDocs(collection(db, "bairros"));
+          const bairrosData = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setListaBairros(bairrosData);
+        } catch (error) {
+          console.error("Erro ao buscar bairros:", error);
+        }
+      };
+      fetchBairros();
+    }
+  }, [showAddressModal]);
 
   const finalizarCadastroCPF = async (cpfLimpo) => {
     if (!tempUser) return;
@@ -62,22 +82,8 @@ export const AuthProvider = ({ children }) => {
       await setDoc(doc(db, "users", tempUser.uid), novoUsuario);
       setUser(novoUsuario);
       setShowCPFModal(false);
-      // Após o CPF, o useEffect vai rodar e abrir o AddressModal automaticamente
     } catch (error) {
-      console.error(error);
       alert("Erro ao salvar CPF.");
-    }
-  };
-
-  const salvarEndereco = async (dadosEnd) => {
-    try {
-      await updateDoc(doc(db, "users", user.uid), {
-        endereco: { ...dadosEnd, cidade: "Guapiara", estado: "SP" }
-      });
-      setUser({ ...user, endereco: { ...dadosEnd, cidade: "Guapiara", estado: "SP" } });
-      setShowAddressModal(false);
-    } catch (error) {
-      alert("Erro ao salvar endereço.");
     }
   };
 
@@ -93,15 +99,16 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{ user, loading, loginGoogle: () => signInWithPopup(auth, new GoogleAuthProvider()), logout: () => signOut(auth), setShowAddressModal }}>
       {children}
 
-      {/* MODAL DE CPF */}
+      {/* MODAL CPF */}
       {showCPFModal && (
-        <div className="fixed inset-0 bg-black/90 z- flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-[40px] p-8 text-center">
-            <h2 className="font-black uppercase italic text-xl">Segurança Mogu</h2>
-            <p className="text-[10px] font-bold text-gray-500 my-4">PRECISAMOS DO SEU CPF PARA O MERCADO PAGO.</p>
+        <div className="fixed inset-0 bg-black/90 z- flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-[40px] p-8 text-center shadow-2xl">
+            <div className="text-4xl mb-2">🛡️</div>
+            <h2 className="font-black uppercase italic text-xl text-gray-800">Segurança Mogu</h2>
+            <p className="text-[10px] font-bold text-gray-500 my-4 uppercase">Validar CPF para pagamentos</p>
             <input 
               type="text" value={cpfValue} onChange={handleCpfChange} placeholder="000.000.000-00"
-              className="w-full bg-gray-100 p-4 rounded-2xl font-black text-center text-xl outline-none"
+              className="w-full bg-gray-100 p-4 rounded-2xl font-black text-center text-xl outline-none border-2 border-transparent focus:border-yellow-400"
             />
             <button 
               onClick={() => {
@@ -109,7 +116,7 @@ export const AuthProvider = ({ children }) => {
                 if(limpo.length === 11) finalizarCadastroCPF(limpo);
                 else alert("CPF incompleto!");
               }}
-              className="w-full mt-4 bg-black text-white p-5 rounded-[20px] font-black uppercase italic"
+              className="w-full mt-4 bg-black text-white p-5 rounded-[20px] font-black uppercase italic active:scale-95"
             >
               Confirmar
             </button>
@@ -117,32 +124,69 @@ export const AuthProvider = ({ children }) => {
         </div>
       )}
 
-      {/* MODAL DE ENDEREÇO - APARECE SE ESTIVER FALTANDO DADOS */}
+      {/* MODAL ENDEREÇO (ESTILO GAVETA CENTRALIZADA) */}
       {showAddressModal && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z- flex items-end sm:items-center justify-center">
-          <div className="bg-white w-full max-w-lg rounded-t-[40px] sm:rounded-[40px] p-8 shadow-2xl">
-            <h2 className="font-black uppercase italic text-2xl text-gray-800">Onde entregamos?</h2>
-            <p className="text-gray-400 font-bold uppercase text-[10px] mb-6">Mogu Mogu Delivery - Guapiara</p>
-            <div className="space-y-3">
-              <input id="rua" type="text" placeholder="Rua / Logradouro" className="w-full bg-gray-100 p-4 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-red-500"/>
-              <div className="flex gap-2">
-                <input id="numero" type="text" placeholder="Nº" className="w-24 bg-gray-100 p-4 rounded-2xl font-bold outline-none"/>
-                <input id="bairro" type="text" placeholder="Bairro" className="flex-1 bg-gray-100 p-4 rounded-2xl font-bold outline-none"/>
-              </div>
-              <input id="ref" type="text" placeholder="Ponto de Referência" className="w-full bg-gray-100 p-4 rounded-2xl font-bold outline-none"/>
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z- flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-[35px] p-6 shadow-2xl flex flex-col max-h-[90vh]">
+            
+            <div className="text-center mb-4">
+              <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+              <h2 className="font-black uppercase italic text-2xl text-gray-800">Sua Localização</h2>
+              <p className="text-gray-400 font-bold uppercase text-[10px]">Guapiara - SP</p>
             </div>
+
+            <div className="flex-1 overflow-y-auto pr-1 space-y-4 mb-4 custom-scrollbar">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black ml-4 text-gray-400 uppercase">Rua e Número</label>
+                <div className="flex gap-2">
+                  <input id="rua" type="text" placeholder="Nome da Rua" className="flex-1 bg-gray-100 p-4 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-red-500"/>
+                  <input id="numero" type="text" placeholder="Nº" className="w-20 bg-gray-100 p-4 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-red-500"/>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black ml-4 text-gray-400 uppercase">Bairro</label>
+                <div className="relative">
+                  <select id="bairroId" className="w-full bg-gray-100 p-4 rounded-2xl font-bold outline-none appearance-none border-2 border-transparent focus:border-red-500">
+                    <option value="">Selecione o Bairro...</option>
+                    {listaBairros.map((b) => (
+                      <option key={b.id} value={b.id}>{b.nome}</option>
+                    ))}
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">▼</div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black ml-4 text-gray-400 uppercase">Complemento / Referência</label>
+                <input id="ref" type="text" placeholder="Ex: Próximo à praça" className="w-full bg-gray-100 p-4 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-red-500"/>
+              </div>
+            </div>
+
             <button 
-              onClick={() => {
+              onClick={async () => {
                 const rua = document.getElementById("rua").value;
                 const num = document.getElementById("numero").value;
-                const bairro = document.getElementById("bairro").value;
+                const bairroId = document.getElementById("bairroId").value;
                 const ref = document.getElementById("ref").value;
-                if(!rua || !num || !bairro) return alert("Preencha os campos obrigatórios!");
-                salvarEndereco({ rua, numero: num, bairro, referencia: ref });
+                const bairroSel = listaBairros.find(b => b.id === bairroId);
+
+                if(!rua || !num || !bairroId) return alert("Preencha rua, número e bairro!");
+
+                const endCompleto = { 
+                  rua, numero: num, bairroId, 
+                  bairroNome: bairroSel.nome, 
+                  referencia: ref, 
+                  cidade: "Guapiara" 
+                };
+                
+                await updateDoc(doc(db, "users", user.uid), { endereco: endCompleto });
+                setUser({...user, endereco: endCompleto});
+                setShowAddressModal(false);
               }}
-              className="w-full mt-6 bg-red-600 text-white p-5 rounded-[25px] font-black uppercase italic active:scale-95"
+              className="w-full bg-red-600 text-white p-5 rounded-[25px] font-black uppercase italic shadow-lg active:scale-95 transition-transform shrink-0"
             >
-              Começar a Pedir
+              Confirmar Endereço
             </button>
           </div>
         </div>
