@@ -1,81 +1,77 @@
 "use client";
 import { useState, useEffect } from "react";
-import { db } from "../lib/firebase";
-import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+// Importamos as ferramentas do Remote Config
+import { getRemoteConfig, fetchAndActivate, getValue } from "firebase/remote-config";
+// ATENÇÃO: Confirme se o 'app' está sendo exportado no seu arquivo lib/firebase.js
+import { app } from "../lib/firebase"; 
 
-export default function BannerCarrossel() {
-  const [banners, setBanners] = useState([]);
-  const [index, setIndex] = useState(0);
+export default function BannerRemote() {
+  const [bannerUrl, setBannerUrl] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const carregarMoguBanners = async () => {
+    let isMounted = true; // Trava de segurança para não atualizar se o componente desmontar
+
+    const carregarBannerInteligente = async () => {
+      const remoteConfig = getRemoteConfig(app);
+      
+      // ZERA O CACHE (Deixe assim para testarmos. Quando for para a rua, nós apagamos essa linha)
+      remoteConfig.settings.minimumFetchIntervalMillis = 0; 
+
       try {
-        const agora = new Date();
-        const diaHoje = agora.getDay(); 
-        const horaHoje = agora.getHours();
+        // Tenta buscar as regras novas no Firebase
+        await fetchAndActivate(remoteConfig);
         
-        // Lógica 24h completa: reconhece a Madrugada agora!
-        let turnoAtual = "noite";
-        if (horaHoje >= 0 && horaHoje < 6) turnoAtual = "madrugada";
-        else if (horaHoje >= 6 && horaHoje < 12) turnoAtual = "manha";
-        else if (horaHoje >= 12 && horaHoje < 18) turnoAtual = "tarde";
-
-        const qSets = query(
-          collection(db, "banners_sets"),
-          where("ativo", "==", true),
-          where("dias", "array-contains", diaHoje)
-        );
-
-        const snapSets = await getDocs(qSets);
-        let idCampanhaAtiva = null;
-        snapSets.forEach(doc => {
-          if (doc.data().turno === turnoAtual) idCampanhaAtiva = doc.id;
-        });
-
-        if (idCampanhaAtiva) {
-          const qBanners = query(
-            collection(db, "banners_sets", idCampanhaAtiva, "banners"),
-            where("ativo", "==", true),
-            orderBy("ordem", "asc")
-          );
-          const snapBanners = await getDocs(qBanners);
-          setBanners(snapBanners.docs.map(d => ({ id: d.id, ...d.data() })));
+        if (isMounted) {
+          // Busca a chave exata que você criou lá no painel
+          const url = getValue(remoteConfig, "banner_principal_url").asString();
+          if (url) {
+            setBannerUrl(url);
+          }
         }
-      } catch (error) { console.error("Erro:", error); } 
-      finally { setLoading(false); }
+      } catch (error) { 
+        // Se der o erro de IDBDatabase do Next.js, ele cai aqui sem travar a tela
+        console.warn("Aviso do Firebase (Comum no modo Dev):", error.message);
+        
+        // Plano B: Tenta ler o valor que já estava no cache local
+        try {
+          if (isMounted) {
+             const url = getValue(remoteConfig, "banner_principal_url").asString();
+             if (url) {
+               setBannerUrl(url);
+             }
+          }
+        } catch (fallbackError) {
+          console.error("Falha total ao ler Remote Config:", fallbackError);
+        }
+      } finally { 
+        if (isMounted) {
+          setLoading(false); 
+        }
+      }
     };
-    carregarMoguBanners();
+
+    carregarBannerInteligente();
+
+    // Limpeza quando o componente desmonta (para evitar vazamento de memória)
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  useEffect(() => {
-    if (banners.length <= 1) return;
-    const intervalo = setInterval(() => {
-      setIndex((prev) => (prev + 1) % banners.length);
-    }, 7000); 
-    return () => clearInterval(intervalo);
-  }, [banners]);
-
+  // Animação de carregamento (Skeleton)
   if (loading) return <div className="w-full h-72 bg-zinc-900 animate-pulse rounded-[45px]" />;
-  if (banners.length === 0) return null;
+  
+  // Se houver falha e não vier link, esconde o componente para não ficar um buraco
+  if (!bannerUrl) return null;
 
   return (
     <div className="relative w-full h-72 overflow-hidden rounded-[45px] bg-black shadow-2xl border border-white/5 group">
-      {banners.map((banner, i) => (
-        <div key={banner.id} className={`absolute inset-0 transition-all duration-[2000ms] ease-in-out transform ${i === index ? "opacity-100 scale-100" : "opacity-0 scale-110"}`}>
-          {/* REMOVIDO: brightness-90 para manter a cor original vibrante */}
-          <img src={banner.src} className="w-full h-full object-cover" alt="Destaque Mogu" />
-          
-          {/* REMOVIDO: O gradiente que criava a sombra escura no rodapé do banner */}
-        </div>
-      ))}
-      {banners.length > 1 && (
-        <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-3">
-          {banners.map((_, i) => (
-            <div key={i} className={`h-1.5 rounded-full transition-all duration-1000 ${i === index ? "w-10 bg-orange-500" : "w-2 bg-white/20"}`} />
-          ))}
-        </div>
-      )}
+        <img 
+          src={bannerUrl} 
+          className="w-full h-full object-cover" 
+          alt="Destaque Mogu Mogu" 
+        />
     </div>
   );
 }

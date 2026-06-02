@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==========================================
+    // FUNÇÕES BÁSICAS
+    // ==========================================
+    function isLogged() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isLogged() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ==========================================
+    // 1. TUDO QUE É PÚBLICO (Leitura Liberada)
+    // ==========================================
+    match /restaurants/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /products/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /neighborhoods/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /notas_anuncios/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /mogu_tv/{id} { allow read: if true; allow write: if isAdmin(); }
+    
+    match /doces/{id} { 
+      allow read: if true; 
+      allow write: if isAdmin(); 
+    }
+
+    // --- BEBIDAS (Ajustado para o Editor) ---
+    match /bebidas/{id} {
+      allow read: if true;
+      // Permite escrita se for Admin ou se você estiver testando localmente
+      allow write: if isAdmin() || isLogged(); 
+    }
+
+    // ==========================================
+    // 2. BANNERS E SUBCOLEÇÕES
+    // ==========================================
+    match /banners_sets/{setId} { 
+      allow read: if true; 
+      allow write: if isAdmin(); 
+      
+      match /banners/{bannerId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    // ==========================================
+    // 3. USUÁRIOS (Proteção do seu Caixa)
+    // ==========================================
+    match /users/{userId} {
+      allow read: if isLogged(); 
+      
+      // Bloqueia alteração manual de moedas e cargo pelo próprio usuário
+      allow write: if isLogged() && request.auth.uid == userId 
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['moedas', 'isAdmin']);
+      
+      allow read, write: if isAdmin();
+    }
+
+    // ==========================================
+    // 4. PEDIDOS (AJUSTADO PARA COZINHA)
+    // ==========================================
+    match /orders/{orderId} {
+      allow read, update: if true; 
+      allow create: if isLogged(); 
+      allow delete: if isAdmin();
+    }
+
+    // ==========================================
+    // 5. LOGÍSTICA E OUTROS
+    // ==========================================
+    match /lines/{id} {
+      allow read: if true;
+      allow update: if isLogged();
+      allow create, delete: if isAdmin();
+    }
+    
+    match /{path=**}/banners/{bannerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ==========================================
+    // 6. REGRA GLOBAL (Segurança Final)
+    // ==========================================
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

@@ -1,3 +1,0 @@
-corigir paginas dos restarantes e pqgina dos especiais mudando eles pra firebase 
-
-avisar que a animação parou e que  sacola n pode ter dois restarante diferente

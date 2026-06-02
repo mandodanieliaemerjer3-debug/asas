@@ -6,6 +6,9 @@ class SoundManager {
       click: typeof Audio !== "undefined" ? new Audio("/sounds/click.mp3") : null,
       add: typeof Audio !== "undefined" ? new Audio("/sounds/add.mp3") : null,
       remove: typeof Audio !== "undefined" ? new Audio("/sounds/remove.mp3") : null,
+      // 🔥 NOVOS SONS PARA A COZINHA
+      novoPedido: typeof Audio !== "undefined" ? new Audio("/sounds/beep.mp3") : null, 
+      pedidoPronto: typeof Audio !== "undefined" ? new Audio("/sounds/success.mp3") : null,
     };
 
     // volume padrão
@@ -20,14 +23,15 @@ class SoundManager {
 
     try {
       sound.currentTime = 0;
-      sound.play();
+      sound.play().catch(() => {
+        // Silencia erro de autoplay se o usuário ainda não clicou na tela
+        console.log("Aguardando interação para tocar som: " + name);
+      });
     } catch (e) {
-      // evita erro de autoplay bloqueado
-      console.log("Som bloqueado pelo navegador");
+      console.log("Erro ao tocar som:", e);
     }
   }
 }
 
 const soundManager = new SoundManager();
-
 export default soundManager;

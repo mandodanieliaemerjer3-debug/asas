@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==========================================
+    // FUNÇÕES DE APOIO
+    // ==========================================
+    function isLogged() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isLogged() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ==========================================
+    // 1. COLEÇÕES PÚBLICAS (Leitura para todos, escrita apenas Admin)
+    // ==========================================
+    match /restaurants/{id} { 
+      allow read: if true; 
+      // Permite escrita para Admin, ou se você estiver autenticado no seu dev
+      allow write: if isAdmin() || isLogged(); 
+    }
+    
+    match /neighborhoods/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /notas_anuncios/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /mogu_tv/{id} { allow read: if true; allow write: if isAdmin(); }
+    
+    match /doces/{id} { 
+      allow read: if true; 
+      allow write: if isAdmin(); 
+    }
+
+    match /operadores/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /products/{id} { 
+      allow read: if true; 
+      allow write: if isAdmin() || isLogged(); 
+    }
+
+    match /bebidas/{id} {
+      allow read: if true;
+      allow write: if isAdmin() || isLogged(); 
+    }
+
+    // ==========================================
+    // 2. BANNERS
+    // ==========================================
+    match /banners_sets/{setId} { 
+      allow read: if true; 
+      allow write: if isAdmin(); 
+      
+      match /banners/{bannerId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    // ==========================================
+    // 3. USUÁRIOS (Proteção dos saldos)
+    // ==========================================
+    match /users/{userId} {
+      allow read: if isLogged(); 
+      
+      allow write: if isLogged() && request.auth.uid == userId 
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['moedas', 'isAdmin']);
+      
+      allow read, write: if isAdmin();
+    }
+
+    // ==========================================
+    // 4. PEDIDOS
+    // ==========================================
+    match /orders/{orderId} {
+      allow read, update: if true; 
+      allow create: if isLogged(); 
+      allow delete: if isAdmin();
+    }
+
+    // ==========================================
+    // 5. LOGÍSTICA
+    // ==========================================
+    match /lines/{id} {
+      allow read: if true;
+      allow update: if isLogged();
+      allow create, delete: if isAdmin();
+    }
+    
+    match /{path=**}/banners/{bannerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ==========================================
+    // 6. REGRA GLOBAL DE SEGURANÇA
+    // ==========================================
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

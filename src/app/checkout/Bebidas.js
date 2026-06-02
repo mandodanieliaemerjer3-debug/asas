@@ -1,103 +1,148 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { db } from "../../lib/firebase"; 
+import { db, remoteConfig } from "../../lib/firebase"; 
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { fetchAndActivate, getValue } from "firebase/remote-config";
+import { useAuth } from "../../contexts/AuthContext"; 
 
-export default function Bebidas({ onAdd, userId }) {
+export default function Bebidas({ onAdd }) {
+  const { user } = useAuth(); 
   const [bebidas, setBebidas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [config, setConfig] = useState({
+    titulo_secao: "Bebidas da Adega",
+    tags_prioritarias: []
+  });
 
   useEffect(() => {
-    const buscarDados = async () => {
-      setLoading(true);
+    const carregarTudo = async () => {
+      if (!remoteConfig) return;
+
       try {
-        // 1. Identifica o usuário (usa o Armando como padrão se não vier ID)
-        const idFinal = userId || "qALhcgk3B9cEiix7W35sjNvcYou2"; 
-        
-        // 2. Busca interesses
-        let interessesUsuario = [];
-        const userSnap = await getDoc(doc(db, "users", idFinal));
-        if (userSnap.exists()) {
-          interessesUsuario = (userSnap.data().interesses || []).map(i => i.toLowerCase().trim());
+        setLoading(true);
+
+        // 1. Sincroniza as Regras de Inteligência (Remote Config)
+        await fetchAndActivate(remoteConfig);
+        const configRaw = getValue(remoteConfig, "estrategia_bebidas").asString();
+        const estrategia = JSON.parse(configRaw || "{}");
+
+        // 2. Busca Interesses Reais do Usuário (Firestore)
+        let interessesDoUser = [];
+        if (user?.uid) {
+          const userSnap = await getDoc(doc(db, "users", user.uid));
+          if (userSnap.exists()) {
+            interessesDoUser = (userSnap.data().interesses || []).map(i => String(i).toLowerCase().trim());
+          }
         }
 
-        // 3. Busca bebidas
+        // 3. Busca todas as Bebidas do Banco
         const snap = await getDocs(collection(db, "bebidas"));
-        let lista = snap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
+        let lista = snap.docs.map(docItem => ({
+          id: docItem.id,
+          ...docItem.data(),
+          restaurantId: "adega_geral"
         }));
 
-        // 4. 🔥 Ordenação por Relevância (Nome e Tags)
+        // 4. LÓGICA DE RANKING PERSONALIZADO
+        const mapeamento = estrategia.mapeamento_interesses || {};
+        const tagsDestaque = (estrategia.tags_prioritarias || []).map(t => String(t).toLowerCase().trim());
+
         lista.sort((a, b) => {
-          const nomeA = a.nome?.toLowerCase() || "";
-          const nomeB = b.nome?.toLowerCase() || "";
-          const tagsA = (a.tags || []).map(t => t.toLowerCase().trim());
-          const tagsB = (b.tags || []).map(t => t.toLowerCase().trim());
+          let scoreA = 0;
+          let scoreB = 0;
 
-          // Match no nome dá bônus alto
-          const matchNomeA = interessesUsuario.some(i => nomeA.includes(i)) ? 50 : 0;
-          const matchNomeB = interessesUsuario.some(i => nomeB.includes(i)) ? 50 : 0;
-          
-          // Match nas tags dá bônus acumulativo
-          const matchTagsA = tagsA.filter(t => interessesUsuario.includes(t)).length * 10;
-          const matchTagsB = tagsB.filter(t => interessesUsuario.includes(t)).length * 10;
+          const tagsA = (a.tags || []).map(t => String(t).toLowerCase().trim());
+          const tagsB = (b.tags || []).map(t => String(t).toLowerCase().trim());
 
-          return (matchNomeB + matchTagsB) - (matchNomeA + matchTagsA);
+          // Pontuação por Interesse
+          interessesDoUser.forEach(interesse => {
+            const tagsAlvo = (mapeamento[interesse] || []).map(t => String(t).toLowerCase().trim());
+            if (tagsA.some(t => tagsAlvo.includes(t))) scoreA += 50;
+            if (tagsB.some(t => tagsAlvo.includes(t))) scoreB += 50;
+          });
+
+          // Pontuação por Tags Prioritárias
+          if (tagsA.some(t => tagsDestaque.includes(t))) scoreA += 20;
+          if (tagsB.some(t => tagsDestaque.includes(t))) scoreB += 20;
+
+          const matchA = tagsA.filter(t => tagsDestaque.includes(t)).length;
+          const matchB = tagsB.filter(t => tagsDestaque.includes(t)).length;
+
+          return (scoreB + matchB) - (scoreA + matchA); 
         });
 
-        setBebidas(lista);
+        setConfig({
+          titulo_secao: estrategia.titulo_secao || "Geladas da Adega",
+          tags_prioritarias: tagsDestaque
+        });
+
+        setBebidas(lista.slice(0, estrategia.limite_exibicao || 15));
+
       } catch (error) {
-        console.error("Erro ao carregar recomendações:", error);
+        console.error("Erro na Adega Mogu:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    buscarDados();
-  }, [userId]);
+    carregarTudo();
+  }, [user]); 
 
-  if (loading && bebidas.length === 0) return null;
+  if (loading || bebidas.length === 0) return null;
 
   return (
     <div className="mb-6">
       <div className="flex items-center gap-2 mb-3 ml-1">
-        <span className="text-lg">🥤</span>
-        <p className="font-bold text-white/80 text-sm">Recomendados para você</p>
+        <span className="text-lg">🧊</span>
+        <p className="font-black text-white/90 text-sm uppercase italic tracking-tighter">
+          {config.titulo_secao}
+        </p>
       </div>
 
       <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide px-1">
-        {bebidas.map(b => (
-          <div 
-            key={b.id} 
-            className="min-w-[150px] max-w-[150px] bg-white p-3 rounded-3xl shadow-lg flex flex-col items-center justify-between transition-transform active:scale-95"
-          >
-            <div className="w-full">
-              {b.imagem ? (
-                <img src={b.imagem} alt={b.nome} className="w-full h-24 object-contain rounded-xl" />
-              ) : (
-                <div className="w-full h-24 bg-gray-100 rounded-xl flex items-center justify-center text-[10px] text-gray-400">sem foto</div>
-              )}
+        {bebidas.map((b) => {
+          const pTags = (b.tags || []).map(t => String(t).toLowerCase().trim());
+          const isTop = pTags.some(t => config.tags_prioritarias.includes(t));
 
-              <div className="mt-3 px-1">
-                <p className="text-[12px] font-extrabold text-zinc-900 line-clamp-2 h-9 leading-tight">
+          return (
+            <div
+              key={b.id}
+              className="min-w-[150px] bg-white p-3 rounded-[2.5rem] shadow-xl flex flex-col justify-between transition-transform active:scale-95 border-b-4 border-gray-100"
+            >
+              <div className="relative">
+                {isTop && (
+                  <span className="absolute -top-1 -right-1 bg-orange-500 text-[8px] text-white font-black px-2 py-1 rounded-full shadow-md z-10 animate-pulse">
+                    TOP
+                  </span>
+                )}
+                
+                <img
+                  src={b.imagem}
+                  alt={b.nome}
+                  className="w-full h-24 object-contain rounded-2xl"
+                />
+              </div>
+
+              <div className="mt-2 px-1">
+                <p className="text-[11px] font-extrabold text-zinc-900 line-clamp-2 h-7 leading-none uppercase">
                   {b.nome}
                 </p>
+
                 <p className="text-sm text-green-600 font-black mt-1">
-                  R$ {Number(b.preco).toFixed(2)}
+                  R$ {Number(b.preco || 0).toFixed(2)}
                 </p>
               </div>
-            </div>
 
-            <button
-              onClick={() => onAdd(b)}
-              className="mt-3 w-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-black py-2.5 rounded-2xl shadow-orange-200 shadow-md transition-colors"
-            >
-              Adicionar
-            </button>
-          </div>
-        ))}
+              <button
+                onClick={() => onAdd(b)}
+                className="mt-3 w-full bg-zinc-900 text-white text-[10px] font-black py-3 rounded-2xl shadow-lg active:bg-black transition-colors"
+              >
+                ADICIONAR
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,0 +1,151 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==========================================
+    // 1. FUNÇÕES
+    // ==========================================
+    function isLogged() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return isLogged()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userDoc().data.isAdmin == true;
+    }
+
+    function isOwner(userId) {
+      return isLogged() && request.auth.uid == userId;
+    }
+
+    // ==========================================
+    // 2. PÚBLICO (LEITURA)
+    // ==========================================
+
+    match /banners_sets/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /banners/{bannerId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    match /restaurants/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /products/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /neighborhoods/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /notas_anuncios/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /mogu_tv/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 🔥 NECESSÁRIO PRO SEU APP
+    match /bebidas/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ==========================================
+    // 3. USERS (PROTEGIDO)
+    // ==========================================
+    match /users/{userId} {
+
+      allow read: if isOwner(userId) || isAdmin();
+
+      allow create: if isOwner(userId)
+        && !(request.resource.data.keys().hasAny([
+          'isAdmin', 'moedas', 'saldoPendente'
+        ]));
+
+      // 🔥 versão flexível (não quebra seu app)
+      allow update: if isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['isAdmin','moedas','saldoPendente']);
+
+      allow delete: if isAdmin();
+    }
+
+    // ==========================================
+    // 4. PEDIDOS (AJUSTADO PRA FUNCIONAR)
+    // ==========================================
+    match /orders/{orderId} {
+
+      allow create: if isLogged()
+        && request.resource.data.clienteId == request.auth.uid
+
+        // validações essenciais
+        && request.resource.data.clienteId is string
+        && request.resource.data.total is number
+        && request.resource.data.items is list
+        && request.resource.data.status is string
+
+        && request.resource.data.total > 0
+        && request.resource.data.items.size() > 0
+        && request.resource.data.items.size() <= 20
+        && request.resource.data.status == "pendente"
+
+        // opcional
+        && (!('descricao' in request.resource.data) || request.resource.data.descricao is string)
+        && (!('descricao' in request.resource.data) || request.resource.data.descricao.size() <= 500);
+
+      allow read: if isLogged() &&
+        (request.auth.uid == resource.data.clienteId || isAdmin());
+
+      allow update, delete: if isAdmin();
+    }
+
+    // ==========================================
+    // 5. LOGÍSTICA
+    // ==========================================
+    match /lines/{id} {
+
+      allow read: if true;
+
+      allow update: if isLogged()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['pedidosAtivos'])
+        && request.resource.data.pedidosAtivos is number
+        && request.resource.data.pedidosAtivos == resource.data.pedidosAtivos + 1;
+
+      allow create, delete: if isAdmin();
+    }
+
+    // ==========================================
+    // 6. LOGS
+    // ==========================================
+    match /logs_cliques/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // ==========================================
+    // 7. BLOQUEIO GLOBAL
+    // ==========================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  }
+}

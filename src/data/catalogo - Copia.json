@@ -1,0 +1,112 @@
+{
+  "restaurantes": [
+    {
+      "id": "rest_1",
+      "name": "rest_1",
+      "produtos": [
+        {
+          "id": "0AGG4HgUsgFVLnBv2lSr",
+          "n": "combo familia editado",
+          "d": "para toda a família! Muito bom o valor ele é muito indicado pra uma janta especial, todos tem seu hambúrguer , sua batata , um refrigerante de cada , um sorvete de sobremesa! tudo num belo combo cada um pego o seu é muito legal , pode preparar a foto!!! parcele tudo no cartão que é muito acessível",
+          "p": 125,
+          "cp": 25000,
+          "img": "77.png",
+          "t": "#noite#madrugada#hamburguer#lanche#sorvete#bebida#grelhado#carne#queijo#cheddar#mussarela#bacon#ovo#familia#homem#rural#viajante#artesanal",
+          "c": "",
+          "custom": true,
+          "f": "selecao_sabor",
+          "pizza": false,
+          "burguer": true,
+          "combo": true
+        },
+        {
+          "id": "9Rsf83GCWIyUP8kcWTKG",
+          "n": "mega burguer , hamburguer",
+          "d": "Um hambúrguer grande e suculento feito com pão macio, carne bovina grelhada, queijo derretido, alface fresca, tomate, cebola e um molho especial da casa. Uma combinação clássica e saborosa para quem quer um lanche caprichado e cheio de sabor.",
+          "p": 22,
+          "cp": 20002,
+          "img": "7",
+          "t": "#lanche #hamburguer #rural #cidade #viajante #aventureiro",
+          "c": "",
+          "custom": false,
+          "f": "",
+          "pizza": false,
+          "burguer": true,
+          "combo": false
+        },
+        {
+          "id": "Q90K5RYPLJpjFAycAsEr",
+          "n": "🍔 Combo Hambúrguer de Frango + Refri, Sorvete & Batata!",
+          "d": "Hambúrguer de Frango suculento e crocante: filé de frango empanado, alface crocante, tomate fatiado, queijo muçarela derretido e molho especial! + 1 copo de refrigerante 500ml (escolha seu sabor), sorvete cremoso e batata frita 100g douradinha. Ideal pra família. Entrega rapidinha! Peça e devore!",
+          "p": 27,
+          "cp": 5400,
+          "img": "5",
+          "t": "#hamburguer#sorvete#empanado#frango#queijo#alface#tomate#familia",
+          "c": "",
+          "custom": false,
+          "f": "",
+          "pizza": false,
+          "burguer": true,
+          "combo": true
+        }
+      ]
+    },
+    {
+      "id": "rest_2",
+      "name": "rest_2",
+      "produtos": [
+        {
+          "id": "3qm6jHV3hIzhKQdIphYW",
+          "n": "Pizza Quatro Queijos + 4 Refri 500ml",
+          "d": "Quatro Queijos derretidos e irresistíveis: muçarela, provolone, parmesão e gorgonzola em harmonia perfeita! Vem com 4 copos de refrigerante de 500ml (escolha seu sabor). Promo ideal pra curtir em família. Entrega quentinha e rápida! Adicione ao carrinho agora!",
+          "p": 60,
+          "cp": 12000,
+          "img": "3",
+          "t": "#pizza#queijo#parmesao#ovo#familia",
+          "c": "",
+          "custom": true,
+          "f": "selecao_sabor",
+          "pizza": true,
+          "burguer": false,
+          "combo": false
+        },
+        {
+          "id": "EC24wGJeYkdRjVrUVB8E",
+          "n": "pizza frango Catupiry mais refrigerante",
+          "d": "Delícia garantida: nossa pizza de Frango com Catupiry crocante e cremosa, perfeita pra compartilhar! + 4 copos de refrigerante geladinho de 500ml cada (escolha seu sabor). Ideal pra família ou amigos. Entrega rápida e quentinha! Adicione ao carrinho e aproveite!",
+          "p": 60,
+          "cp": 12000,
+          "img": "1",
+          "t": "#pizza#frango#catupiry#familia",
+          "c": "",
+          "custom": false,
+          "f": "",
+          "pizza": true,
+          "burguer": false,
+          "combo": false
+        }
+      ]
+    },
+    {
+      "id": "rest_especial",
+      "name": "rest_especial",
+      "produtos": [
+        {
+          "id": "6nw2KwejXvtbZZTNMwkn",
+          "n": "marmita de frango assado",
+          "d": "",
+          "p": 26,
+          "cp": 5200,
+          "img": "combo.png",
+          "t": "#manha#almoco#marmita",
+          "c": "",
+          "custom": false,
+          "f": "",
+          "pizza": false,
+          "burguer": false,
+          "combo": false
+        }
+      ]
+    }
+  ]
+}

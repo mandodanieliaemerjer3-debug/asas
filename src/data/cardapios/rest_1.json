@@ -1,0 +1,55 @@
+{
+  "restaurant": {
+    "id": "rest_1",
+    "name": "rest_1"
+  },
+  "updatedAt": "2026-05-30T03:19:03.319Z",
+  "total": 9,
+  "products": [
+    {
+      "id": "0AGG4HgUsgFVLnBv2lSr",
+      "n": "combo familia editado",
+      "d": "para toda a família! Muito bom o valor ele é muito indicado pra uma janta especial, todos tem seu hambúrguer , sua batata , um refrigerante de cada , um sorvete de sobremesa! tudo num belo combo cada um pego o seu é muito legal , pode preparar a foto!!! parcele tudo no cartão que é muito acessível",
+      "p": 125,
+      "cp": 25000,
+      "img": "Gemini_Generated_Image_fdit5zfdit5zfdit.png",
+      "t": "#noite#madrugada#hamburguer#lanche#sorvete#bebida#grelhado#carne#queijo#cheddar#mussarela#bacon#ovo#familia#homem#rural#viajante#artesanal",
+      "c": "",
+      "custom": true,
+      "f": "selecao_sabor",
+      "pizza": false,
+      "burguer": true,
+      "combo": true
+    },
+    {
+      "id": "9Rsf83GCWIyUP8kcWTKG",
+      "n": "mega burguer , hamburguer",
+      "d": "Um hambúrguer grande e suculento feito com pão macio, carne bovina grelhada, queijo derretido, alface fresca, tomate, cebola e um molho especial da casa. Uma combinação clássica e saborosa para quem quer um lanche caprichado e cheio de sabor.",
+      "p": 22,
+      "cp": 20002,
+      "img": "https://firebasestorage.googleapis.com/v0/b/studio-7633049135-6e41d.firebasestorage.app/o/produtos%2F1772992090020.jpg?alt=media&token=8d50b0d2-3b9f-4864-89ef-ba8e6288d5cb",
+      "t": "#lanche #hamburguer #rural #cidade #viajante #aventureiro",
+      "c": "",
+      "custom": false,
+      "f": "",
+      "pizza": false,
+      "burguer": true,
+      "combo": false
+    },
+    {
+      "id": "Q90K5RYPLJpjFAycAsEr",
+      "n": "🍔 Combo Hambúrguer de Frango + Refri, Sorvete & Batata!",
+      "d": "Hambúrguer de Frango suculento e crocante: filé de frango empanado, alface crocante, tomate fatiado, queijo muçarela derretido e molho especial! + 1 copo de refrigerante 500ml (escolha seu sabor), sorvete cremoso e batata frita 100g douradinha. Ideal pra família. Entrega rapidinha! Peça e devore!",
+      "p": 27,
+      "cp": 5400,
+      "img": "https://firebasestorage.googleapis.com/v0/b/studio-7633049135-6e41d.firebasestorage.app/o/produtos%2F1772937475074.jpg?alt=media&token=19c24d82-0eb4-41af-921b-2270b3a24e71",
+      "t": "#hamburguer#sorvete#empanado#frango#queijo#alface#tomate#familia",
+      "c": "",
+      "custom": false,
+      "f": "",
+      "pizza": false,
+      "burguer": true,
+      "combo": true
+    },
+  ]
+}
