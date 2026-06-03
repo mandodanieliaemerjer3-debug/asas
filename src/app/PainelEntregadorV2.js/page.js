@@ -5,9 +5,6 @@ import { db } from "../../lib/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useAuth } from "../../contexts/AuthContext";
 
-import PainelUrbana from "./components/PainelUrbana";
-import PainelOffRoad from "./components/PainelOffRoad";
-
 export default function MaestroEntregador() {
   const { user } = useAuth();
   const [perfil, setPerfil] = useState(null);
@@ -46,43 +43,50 @@ export default function MaestroEntregador() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white font-black italic animate-pulse">
-        VERIFICANDO CREDENCIAIS ELITE...
+      <div className="min-h-screen flex items-center justify-center">
+        Verificando perfil...
       </div>
     );
   }
 
   if (erro) {
     return (
-      <div className="p-20 text-center font-black uppercase text-red-600">
-        ERRO AO CARREGAR PERFIL
+      <div className="p-10 text-center">
+        {erro}
       </div>
     );
   }
 
   if (!perfil) {
     return (
-      <div className="p-20 text-center font-black uppercase text-red-600">
-        PERFIL NÃO ENCONTRADO
+      <div className="p-10 text-center">
+        Perfil não encontrado.
       </div>
     );
   }
 
-  // MUDANÇA AQUI: Agora validamos pelo campo 'role' que está no seu Firestore
   if (perfil.role !== "entregador") {
     return (
-      <div className="p-20 text-center font-black uppercase text-red-600">
-        ACESSO RESTRITO: APENAS ENTREGADORES
+      <div className="p-10 text-center">
+        Acesso restrito para entregadores.
       </div>
     );
   }
 
-  // 2. DIRECIONAMENTO POR RANK
-  // Lembre-se de adicionar o campo 'rank' no Firestore para testar o PainelOffRoad
-  if (perfil.rank === "Off-Road Root") {
-    return <PainelOffRoad perfil={perfil} />;
-  }
+  return (
+    <div className="p-10">
+      <h1>Painel do Entregador</h1>
 
-  // 3. PADRÃO
-  return <PainelUrbana perfil={perfil} />;
+      <pre
+        style={{
+          background: "#f5f5f5",
+          padding: "15px",
+          borderRadius: "8px",
+          overflow: "auto",
+        }}
+      >
+        {JSON.stringify(perfil, null, 2)}
+      </pre>
+    </div>
+  );
 }
